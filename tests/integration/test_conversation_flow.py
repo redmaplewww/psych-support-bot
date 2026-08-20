@@ -199,3 +199,51 @@ def test_process_metadata_is_exposed_for_contradiction_style_message() -> None:
     assert result.debug["interview_stage"] == "hypothesis_testing"
     assert result.debug["question_strategy"] == "looping"
     assert result.debug["challenge_allowed"] is True
+
+
+def test_non_assessment_message_during_assessment_falls_back_to_support() -> None:
+    """活跃评估期间发送非评估消息应回落到对话图，不应当作无效答案。"""
+    user_id = f"non-assessment-during-{uuid4()}"
+    with SessionLocal() as session:
+        start = conversation_service.respond(
+            ConversationRequest(user_id=user_id, message="我想做 PHQ-9"),
+            session=session,
+        )
+        assert start.mode == "assessment"
+        assert start.debug["source"] == "assessment_start"
+
+        # 在量表进行中发送一句支持意图消息（不是数字也不是退出指令）
+        mid = conversation_service.respond(
+            ConversationRequest(user_id=user_id, message="我最近还感到很焦虑"),
+            session=session,
+        )
+
+    # 应当回落到对话图，不进入 invalid_answer 分支
+    assert mid is not None
+    assert mid.debug.get("source") not in {"questionnaire_progress", "assessment_result"}
+    assert mid.mode in {"support", "intervention", "planning", "crisis"}
+    assert mid.reply.text
+
+
+def test_help_message_during_assessment_does_not_continue_questionnaire() -> None:
+    """活跃评估期间发送 help 意图不应让评估继续推进。"""
+    user_id = f"help-during-assessment-{uuid4()}"
+    with SessionLocal() as session:
+        start = conversation_service.respond(
+            ConversationRequest(user_id=user_id, message="我想做 ISI"),
+            session=session,
+        )
+        assert start.mode == "assessment"
+
+        # 发送帮助消息
+        help_resp = conversation_service.respond(
+            ConversationRequest(user_id=user_id, message="你能帮我吗"),
+            session=session,
+        )
+
+        # 帮助回复不能是量表提示或要求输入数字的错误提示
+        text = help_resp.reply.text
+        assert "请回复一个数字" not in text
+        assert "Please reply with a number" not in text
+        # 也不能推进到下一题（source 不是 questionnaire_progress）
+        assert help_resp.debug.get("source") != "questionnaire_progress"

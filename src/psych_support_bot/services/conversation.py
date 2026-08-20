@@ -5,6 +5,7 @@ from typing import Any, Literal, cast
 from sqlalchemy.orm import Session
 
 from psych_support_bot.ai.graphs.conversation import conversation_graph
+from psych_support_bot.ai.routers.intent import detect_mode
 from psych_support_bot.ai.schemas.messages import (
     ConversationMode,
     ConversationRequest,
@@ -111,6 +112,9 @@ class ConversationService:
 
         active_session = get_active_questionnaire_session(session, payload.user_id)
         if active_session is not None:
+            user_mode = detect_mode(payload.message)
+            if user_mode != "assessment":
+                return None
             assessment_type = cast(Any, active_session.assessment_type)
             answer_value = parse_questionnaire_answer(payload.message, assessment_type)
             answers = cast(list[int], json.loads(active_session.answers_json or "[]"))
