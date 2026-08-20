@@ -29,13 +29,17 @@ REFUSAL_KEYWORDS = [
     "不要",
     "跳过这题",
 ]
+# Crisis keywords for intent routing.
+# Aligned with safety/rules.py: HIGH_RISK_KEYWORDS are used for risk grading,
+# CRISIS_KEYWORDS here are used for intent routing (mode=crisis).
+# "help me" was removed: too broad, caused false crisis routing on normal help-seeking.
+# Both lists must stay in sync for overlapping terms (suicide, self-harm, etc.)
 CRISIS_KEYWORDS = [
     "suicide",
     "kill myself",
     "end my life",
     "want to die",
     "self-harm",
-    "help me",
     "emergency",
     "crisis",
     "救命",
