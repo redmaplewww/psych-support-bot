@@ -1,6 +1,7 @@
 import logging
 
 from psych_support_bot.ai.consultation import consultation_agent_descriptions
+from psych_support_bot.ai.prompts.templates import build_crisis_safety_prompt
 from psych_support_bot.ai.schemas.messages import GeneratedReply
 from psych_support_bot.ai.schemas.state import GraphState
 from psych_support_bot.ai.safety.crisis import build_crisis_reply
@@ -14,10 +15,39 @@ logger = logging.getLogger(__name__)
 
 def generate_response(state: GraphState) -> GraphState:
     state["fallback_used"] = False
-    if state["mode"] == "crisis":
+    risk_level = state["risk_result"].risk_level
+
+    # Only critical risk uses pure template reply (imminent danger)
+    # High risk now goes through LLM with crisis safety prompt injected
+    if risk_level == "critical":
         reply_text = build_crisis_reply(
             state["risk_result"], user_message=state["user_message"]
         )
+        state["consultation_opinions"] = []
+    elif state["mode"] == "crisis" and risk_level == "high":
+        # High-risk crisis: use LLM with crisis safety guidance
+        try:
+            reply_text = generate_clinically_bounded_reply(
+                user_message=state["user_message"],
+                mode="crisis",
+                risk_level="high",
+                memory_summary=state.get("memory_summary", ""),
+                knowledge_context=build_crisis_safety_prompt(),
+                consultation_required=False,
+                consultation_agents=[],
+                consultation_framework="",
+                interview_stage="engagement",
+                question_strategy="open",
+                challenge_allowed=False,
+                loop_hint="Prioritize safety, validation, and gentle redirection to support resources.",
+            )
+            state["consultation_opinions"] = []
+        except Exception as exc:
+            logger.exception("LLM generation failed for high-risk; using crisis template fallback.")
+            state["fallback_used"] = True
+            reply_text = build_crisis_reply(
+                state["risk_result"], user_message=state["user_message"]
+            )
     else:
         try:
             if state.get("consultation_required", False):
