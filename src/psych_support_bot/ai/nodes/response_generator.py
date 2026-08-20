@@ -55,9 +55,19 @@ def generate_response(state: GraphState) -> GraphState:
                 )
                 state["consultation_opinions"] = []
         except Exception as exc:
-            logger.exception("LLM generation failed with no template fallback.")
-            raise RuntimeError("LLM generation failed") from exc
+            logger.exception("LLM generation failed; using template fallback.")
             state["fallback_used"] = True
+            is_zh = any("\u4e00" <= char <= "\u9fff" for char in state.get("user_message", ""))
+            if is_zh:
+                reply_text = (
+                    "我在这里陪你。虽然我现在遇到了一些技术困难，"
+                    "但我仍然想支持你。我们可以先慢下来，聊一聊你现在的感受。"
+                )
+            else:
+                reply_text = (
+                    "I am here with you. Although I am experiencing some technical difficulty, "
+                    "I still want to support you. Let us slow down and talk about how you are feeling right now."
+                )
 
     state["generated_reply"] = GeneratedReply(
         text=reply_text,
