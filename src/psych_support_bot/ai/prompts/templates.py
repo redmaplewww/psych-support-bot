@@ -117,9 +117,13 @@ def build_boundary_prompt(risk_level: str) -> str:
 
 
 def build_context_prompt(memory_summary: str, knowledge_context: str) -> str:
+    context = knowledge_context or (
+        "Draw on your knowledge of CBT, ACT, DBT, and MI principles. "
+        "Focus on one concrete, non-diagnostic next step."
+    )
     return (
         f"Known user memory summary: {memory_summary or 'No prior memory.'} "
-        f"Relevant practice context: {knowledge_context or 'No additional knowledge context.'}"
+        f"Relevant practice context: {context}"
     )
 
 
