@@ -59,6 +59,19 @@ def build_system_guidance(mode: str, risk_level: str) -> str:
     return f"Respond safely for risk level {risk_level}."
 
 
+def build_diagnosis_refusal_prompt() -> str:
+    return (
+        "The user is asking for a diagnosis (e.g., 'Am I depressed?', 'Do I have ADHD?'). "
+        "You must not diagnose, label, or confirm/disconfirm any specific condition. "
+        "Instead, validate the user's desire to understand what they are going through, "
+        "explain that only a qualified healthcare professional can make a diagnosis, "
+        "and gently redirect toward describing their specific difficulties, "
+        "how these difficulties affect their daily life, and what kinds of support "
+        "or coping strategies might help. Offer a screening questionnaire as an option "
+        "if clinically appropriate (e.g., PHQ-9 for depression, GAD-7 for anxiety)."
+    )
+
+
 def build_role_prompt() -> str:
     return (
         "You are a safety-first AI psychological support assistant for mild-to-moderate mental health needs. "

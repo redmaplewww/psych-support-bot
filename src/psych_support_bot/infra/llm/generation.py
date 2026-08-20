@@ -10,17 +10,25 @@ from psych_support_bot.ai.prompts.templates import (
     build_consultation_prompt,
     build_consultation_synthesis_prompt,
     build_context_prompt,
+    build_diagnosis_refusal_prompt,
     build_language_lock_prompt,
     build_language_lock_prompt_for_language,
     build_output_prompt,
     build_process_prompt,
     build_role_prompt,
 )
+from psych_support_bot.ai.routers.intent import DIAGNOSIS_KEYWORDS
+from psych_support_bot.ai.utils.text_matching import _contains_keyword, _normalize_text
 from psych_support_bot.infra.config.settings import get_settings
 from psych_support_bot.infra.llm.factory import build_chat_model, get_temperature_for_mode
 from psych_support_bot.infra.telemetry.tracing import trace_span, update_span_output
 
 logger = logging.getLogger(__name__)
+
+
+def _is_diagnosis_request(text: str) -> bool:
+    normalized, compact = _normalize_text(text)
+    return any(_contains_keyword(normalized, compact, kw) for kw in DIAGNOSIS_KEYWORDS)
 
 
 def _coerce_content(content: object) -> str:
@@ -239,6 +247,9 @@ def generate_clinically_bounded_reply(
             ),
         ]
     )
+    # Inject diagnosis refusal prompt if user is asking for a diagnosis
+    if _is_diagnosis_request(user_message):
+        system_prompt = system_prompt + "\n\n" + build_diagnosis_refusal_prompt()
     return _invoke(system_prompt, user_message, expected_language, mode=mode)
 
 

@@ -96,6 +96,51 @@ ASSESSMENT_KEYWORDS = [
 ]
 
 
+DIAGNOSIS_KEYWORDS = [
+    "diagnose",
+    "diagnosis",
+    "do i have",
+    "am i depressed",
+    "am i bipolar",
+    "am i autistic",
+    "do i have adhd",
+    "is it depression",
+    "what do i have",
+    "what's wrong with me",
+    "am i sick",
+    "am i crazy",
+    "am i mentally ill",
+    "do i have a disorder",
+    "am i personality disorder",
+    "am i schizophrenic",
+    "am i ocd",
+    "do i have ocd",
+    "我是不是抑郁",
+    "我是不是抑郁症",
+    "我是不是焦虑",
+    "我是不是焦虑症",
+    "我是不是有病",
+    "我有没有病",
+    "我是不是双相",
+    "我是不是躁郁",
+    "我是不是自闭",
+    "我是不是多动",
+    "我是不是强迫",
+    "我是不是人格障碍",
+    "我是不是精神分裂",
+    "我是什么病",
+    "诊断",
+    "确诊",
+    "我得了什么",
+    "我有没有",
+    "我是不是有心理问题",
+    "我是不是有心理障碍",
+    "帮我看一下我是不是",
+    "帮我判断我是不是",
+    "帮我分析一下我是不是",
+]
+
+
 def detect_mode(text: str) -> ConversationMode:
     normalized, compact = _normalize_text(text)
     stripped = normalized.strip()
@@ -104,6 +149,11 @@ def detect_mode(text: str) -> ConversationMode:
         return "support"
     if any(
         _contains_keyword(normalized, compact, keyword) for keyword in REFUSAL_KEYWORDS
+    ):
+        return "support"
+    if any(
+        _contains_keyword(normalized, compact, keyword)
+        for keyword in DIAGNOSIS_KEYWORDS
     ):
         return "support"
     if any(
