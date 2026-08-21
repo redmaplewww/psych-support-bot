@@ -2,7 +2,18 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+# 使用阿里云镜像源加速 apt（国内服务器），兼容 sources.list 和 .sources 格式
+RUN if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
+        sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources; \
+    elif [ -f /etc/apt/sources.list ]; then \
+        sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list; \
+    fi \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 使用阿里云 PyPI 镜像加速 pip/uv
+ENV UV_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
 
 RUN pip install --no-cache-dir uv
 
