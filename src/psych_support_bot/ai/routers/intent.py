@@ -46,6 +46,22 @@ CRISIS_KEYWORDS = [
     "紧急帮助",
     "危机干预",
     "有人吗救救我",
+    # P0-7 alignment: Chinese high-risk keywords from rules.py HIGH_RISK_KEYWORDS
+    "自杀",
+    "想死",
+    "不想活了",
+    "不想活",
+    "活不下去",
+    "轻生",
+    "寻死",
+    "结束生命",
+    "自残",
+    "伤害自己",
+    "割腕",
+    "跳楼",
+    "上吊",
+    "吞药",
+    "服药过量",
 ]
 PLANNING_KEYWORDS = [
     "plan",
