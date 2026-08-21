@@ -16,6 +16,7 @@ from psych_support_bot.api.routes.plans import router as plans_router
 from psych_support_bot.api.routes.reports import router as reports_router
 from psych_support_bot.api.routes.system import router as system_router
 from psych_support_bot.api.routes.users import router as users_router
+from psych_support_bot.infra.config.settings import get_settings
 from psych_support_bot.infra.db.init_db import init_db
 from psych_support_bot.infra.telemetry.tracing import flush_langfuse, get_langfuse
 
@@ -40,10 +41,11 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    settings = get_settings()
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=settings.cors_origins,
+        allow_credentials=settings.environment != "development",
         allow_methods=["*"],
         allow_headers=["*"],
     )

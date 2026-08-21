@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     langfuse_host: str = Field(default="https://cloud.langfuse.com", alias="LANGFUSE_HOST")
     default_conversation_mode: str = "support"
     app_debug: bool = False
+    allowed_origins: str = Field(default="*", alias="ALLOWED_ORIGINS")
 
     @model_validator(mode="after")
     def apply_dashscope_fallbacks(self) -> "Settings":
@@ -34,6 +35,14 @@ class Settings(BaseSettings):
         if self.openai_model in {"", "gpt-4.1-mini"}:
             self.openai_model = os.getenv("DASHSCOPE_MODEL", self.openai_model)
         return self
+
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """Parse ALLOWED_ORIGINS into a list. Supports comma-separated values."""
+        if self.allowed_origins == "*":
+            return ["*"]
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
 
 
 @lru_cache(maxsize=1)
