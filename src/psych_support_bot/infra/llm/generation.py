@@ -51,13 +51,15 @@ def _contains_ascii_words(text: str) -> bool:
 
 
 def _enforce_language(output: str, expected_language: str) -> str:
+    """Best-effort language check. Returns warning instead of raising on second failure."""
     user_is_chinese = expected_language == "zh"
     output_has_chinese = _has_chinese(output)
     output_has_english_words = _contains_ascii_words(output)
 
-    if user_is_chinese and output_has_english_words:
+    if user_is_chinese and output_has_english_words and not output_has_chinese:
+        # Output is entirely English when user spoke Chinese — worth retrying
         raise ValueError("Language mismatch: Chinese user input produced English output")
-    if not user_is_chinese and output_has_chinese:
+    if not user_is_chinese and output_has_chinese and not output_has_english_words:
         raise ValueError("Language mismatch: English user input produced Chinese output")
     return output
 
@@ -111,7 +113,12 @@ def _invoke(
             )
             retry_output = _coerce_content(retry_response.content)
             update_span_output(gen_obs_retry, retry_output)
-        return _enforce_language(retry_output, expected_language)
+        try:
+            return _enforce_language(retry_output, expected_language)
+        except ValueError:
+            # Retry also failed — return as-is rather than crashing with 500
+            logger.warning("Language enforcement failed after retry, returning output as-is")
+            return retry_output
 
 
 def _expected_language(user_message: str) -> str:
