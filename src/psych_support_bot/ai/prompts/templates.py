@@ -118,22 +118,14 @@ def build_boundary_prompt(risk_level: str) -> str:
 
 def build_context_prompt(memory_summary: str, knowledge_context: str) -> str:
     context = knowledge_context or (
-        "Draw on your knowledge of CBT, ACT, DBT, and MI principles. "
-        "Focus on one concrete, non-diagnostic next step."
+        "Draw on your knowledge of CBT, ACT, DBT, and MI principles. Focus on one concrete, non-diagnostic next step."
     )
-    return (
-        f"Known user memory summary: {memory_summary or 'No prior memory.'} "
-        f"Relevant practice context: {context}"
-    )
+    return f"Known user memory summary: {memory_summary or 'No prior memory.'} Relevant practice context: {context}"
 
 
 def build_output_prompt(mode: str, risk_level: str, user_message: str) -> str:
-    expected_language = (
-        "zh" if any("\u4e00" <= char <= "\u9fff" for char in user_message) else "en"
-    )
-    reflection_label, hypothesis_label, question_label = build_visible_reply_labels(
-        expected_language
-    )
+    expected_language = "zh" if any("\u4e00" <= char <= "\u9fff" for char in user_message) else "en"
+    reflection_label, hypothesis_label, question_label = build_visible_reply_labels(expected_language)
     return (
         f"Conversation mode: {mode}. {build_system_guidance(mode=mode, risk_level=risk_level)} "
         f"{build_language_lock_prompt(user_message)} "
@@ -149,9 +141,7 @@ def build_process_prompt(
     loop_hint: str,
     expected_language: str,
 ) -> str:
-    reflection_label, hypothesis_label, question_label = build_visible_reply_labels(
-        expected_language
-    )
+    reflection_label, hypothesis_label, question_label = build_visible_reply_labels(expected_language)
     challenge_rule = (
         "Gentle challenge is allowed when the user's statements conflict, become overly absolute, or avoid concrete detail. Challenge with curiosity, not confrontation."
         if challenge_allowed
@@ -204,12 +194,8 @@ def build_consultation_agent_prompt(
     loop_hint: str,
 ) -> str:
     language_prompt = build_language_lock_prompt_for_language(expected_language)
-    reflection_label, hypothesis_label, question_label = build_visible_reply_labels(
-        expected_language
-    )
-    observation_label, formulation_label, next_step_label = (
-        build_internal_consultation_labels(expected_language)
-    )
+    reflection_label, hypothesis_label, question_label = build_visible_reply_labels(expected_language)
+    observation_label, formulation_label, next_step_label = build_internal_consultation_labels(expected_language)
     return (
         f"You are {agent_label}, a {school} consultation specialist. "
         "You are participating in an internal multidisciplinary case conference for a psychological support assistant. "
@@ -240,12 +226,8 @@ def build_consultation_synthesis_prompt(
     challenge_allowed: bool,
     loop_hint: str,
 ) -> str:
-    expected_language = (
-        "zh" if any("\u4e00" <= char <= "\u9fff" for char in user_message) else "en"
-    )
-    reflection_label, hypothesis_label, question_label = build_visible_reply_labels(
-        expected_language
-    )
+    expected_language = "zh" if any("\u4e00" <= char <= "\u9fff" for char in user_message) else "en"
+    reflection_label, hypothesis_label, question_label = build_visible_reply_labels(expected_language)
     return "\n\n".join(
         [
             build_role_prompt(),

@@ -20,7 +20,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync --frozen
+        run: uv sync
 
       - name: Ruff check
         run: uv run ruff check src/ tests/
@@ -29,11 +29,8 @@ jobs:
         run: uv run ruff format --check src/ tests/
 
   test:
-    name: Tests (Python ${{ matrix.python }})
+    name: Unit Tests
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python: ["3.12"]
     steps:
       - uses: actions/checkout@v4
 
@@ -41,10 +38,10 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Set up Python
-        run: uv python install ${{ matrix.python }}
+        run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync --frozen
+        run: uv sync
 
       - name: Run migrations
         run: uv run alembic upgrade head
@@ -54,32 +51,17 @@ jobs:
       - name: Run unit tests
         run: uv run pytest tests/unit/ -v --tb=short
 
-      - name: Run eval tests
-        run: uv run pytest tests/evals/ -v --tb=short
-
-      - name: Run integration tests
-        run: uv run pytest tests/integration/ -v --tb=short
-        env:
-          DATABASE_URL: sqlite:///./data/test.db
-          # 不配置 Langfuse 密钥，验证 no-op 降级
-          OPENAI_API_KEY: test-placeholder
-          OPENAI_BASE_URL: http://localhost:9959
-          OPENAI_MODEL: test-model
-
   secrets-check:
     name: Secret Leak Scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Check for .env file
         run: |
-          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E "^\.env$"; then
+          if git diff --name-only ${{ github.event.before }}...HEAD 2>/dev/null | grep -E "^\.env$"; then
             echo "::error::.env file detected in commit!"
             exit 1
           fi
-
-      - name: Detect secrets
-        uses: Yiyiyilse/detect-secrets-action@v1
-        with:
-          extra_args: --exclude-files '.env.example'

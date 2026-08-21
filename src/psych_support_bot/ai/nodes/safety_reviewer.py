@@ -17,9 +17,7 @@ def _build_leak_markers() -> tuple[str, ...]:
     role_text = build_role_prompt()
     boundary_text = build_boundary_prompt(risk_level="low")
     context_text = build_context_prompt(memory_summary="", knowledge_context="")
-    output_text = build_output_prompt(
-        mode="support", risk_level="low", user_message="hello"
-    )
+    output_text = build_output_prompt(mode="support", risk_level="low", user_message="hello")
     system_guidance_text = build_system_guidance(mode="support", risk_level="low")
 
     markers: list[str] = []
@@ -160,13 +158,8 @@ def _is_chinese(text: str) -> bool:
 
 def _fallback_text(user_message: str) -> str:
     if _is_chinese(user_message):
-        return (
-            "我在这里陪你。我们先把节奏放慢一点，只聚焦眼前一个小步骤。"
-        )
-    return (
-        "I am here with you. Let us slow this down and focus on "
-        "one small next step together."
-    )
+        return "我在这里陪你。我们先把节奏放慢一点，只聚焦眼前一个小步骤。"
+    return "I am here with you. Let us slow this down and focus on one small next step together."
 
 
 def review_response(state: GraphState) -> GraphState:
@@ -187,11 +180,7 @@ def review_response(state: GraphState) -> GraphState:
     elif has_diagnosis or has_overreach:
         # Diagnosis/overreach: truncate violating sentences, keep the rest
         sanitized, was_modified = _sanitize_text(text)
-        if was_modified and sanitized:
-            text = sanitized
-        else:
-            # All content was violating or empty after sanitization
-            text = _fallback_text(state["user_message"])
+        text = sanitized if (was_modified and sanitized) else _fallback_text(state["user_message"])
 
     state["generated_reply"].text = text
 

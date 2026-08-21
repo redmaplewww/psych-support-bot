@@ -133,18 +133,9 @@ def _normalize_exercise(exercise: Any) -> dict[str, Any]:
 
 def _knowledge_exercises() -> dict[str, dict[str, Any]]:
     return {
-        **{
-            f"cbt_{key}": _normalize_exercise(value)
-            for key, value in KNOWLEDGE_CBT_EXERCISES.items()
-        },
-        **{
-            f"act_{key}": _normalize_exercise(value)
-            for key, value in KNOWLEDGE_ACT_EXERCISES.items()
-        },
-        **{
-            f"dbt_{key}": _normalize_exercise(value)
-            for key, value in KNOWLEDGE_DBT_EXERCISES.items()
-        },
+        **{f"cbt_{key}": _normalize_exercise(value) for key, value in KNOWLEDGE_CBT_EXERCISES.items()},
+        **{f"act_{key}": _normalize_exercise(value) for key, value in KNOWLEDGE_ACT_EXERCISES.items()},
+        **{f"dbt_{key}": _normalize_exercise(value) for key, value in KNOWLEDGE_DBT_EXERCISES.items()},
     }
 
 
@@ -166,31 +157,19 @@ def list_all_exercises() -> dict[str, list[str]]:
         "cbt": sorted(
             {
                 *(CBT_EXERCISES.keys()),
-                *(
-                    key.removeprefix("cbt_")
-                    for key in knowledge
-                    if key.startswith("cbt_")
-                ),
+                *(key.removeprefix("cbt_") for key in knowledge if key.startswith("cbt_")),
             }
         ),
         "act": sorted(
             {
                 *(ACT_EXERCISES.keys()),
-                *(
-                    key.removeprefix("act_")
-                    for key in knowledge
-                    if key.startswith("act_")
-                ),
+                *(key.removeprefix("act_") for key in knowledge if key.startswith("act_")),
             }
         ),
         "dbt": sorted(
             {
                 *(DBT_EXERCISES.keys()),
-                *(
-                    key.removeprefix("dbt_")
-                    for key in knowledge
-                    if key.startswith("dbt_")
-                ),
+                *(key.removeprefix("dbt_") for key in knowledge if key.startswith("dbt_")),
             }
         ),
         "sleep": list(SLEEP_HYGIENE.keys()),

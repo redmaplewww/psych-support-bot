@@ -2,7 +2,6 @@ from fastapi.testclient import TestClient
 
 from psych_support_bot.app import app
 
-
 client = TestClient(app)
 
 
@@ -72,9 +71,7 @@ def test_questionnaire_session_flow() -> None:
     assert review.json()["current_index"] == 7
     assert review.json()["next_item"] is None
 
-    complete = client.post(
-        f"/v1/assessments/sessions/{session_id}/complete?user_id={uid}"
-    )
+    complete = client.post(f"/v1/assessments/sessions/{session_id}/complete?user_id={uid}")
     assert complete.status_code == 200
     body = complete.json()
     assert body["session"]["status"] == "completed"
@@ -164,9 +161,7 @@ def test_complete_session_returns_result_with_interpretation() -> None:
             json={"value": 2},
         )
 
-    response = client.post(
-        f"/v1/assessments/sessions/{session_id}/complete?user_id={uid}"
-    )
+    response = client.post(f"/v1/assessments/sessions/{session_id}/complete?user_id={uid}")
     assert response.status_code == 200
     body = response.json()
     assert body["session"]["status"] == "completed"

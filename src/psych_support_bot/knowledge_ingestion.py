@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import os
 import json
+import os
 import re
 from dataclasses import dataclass
 from html.parser import HTMLParser
@@ -251,9 +251,7 @@ def load_learning_notes() -> list[LearningNote]:
     payload = _read_json(path)
     if not isinstance(payload, list):
         return []
-    return [
-        _deserialize_learning_note(item) for item in payload if isinstance(item, dict)
-    ]
+    return [_deserialize_learning_note(item) for item in payload if isinstance(item, dict)]
 
 
 def load_all_corpora() -> list[CorpusChunk]:
@@ -356,7 +354,7 @@ def html_to_text(html: str) -> str:
             continue
         if stripped.count("/") > 8:
             continue
-        if lowered.startswith(("home >", "home ->", "home ")):
+        if lowered.startswith(("home >", "home ->", "home \x1a")):
             continue
         if lowered.endswith((" home", " menu")) and len(lowered) < 40:
             continue
@@ -444,20 +442,14 @@ def _sanitize_id(value: str) -> str:
 
 def _infer_topics(text: str, path: Path) -> tuple[str, ...]:
     lowered = f"{path.stem} {text[:2000]}".lower()
-    matches = [
-        topic
-        for topic, hints in TOPIC_HINTS.items()
-        if any(hint in lowered for hint in hints)
-    ]
+    matches = [topic for topic, hints in TOPIC_HINTS.items() if any(hint in lowered for hint in hints)]
     return tuple(matches[:4]) or ("stress",)
 
 
 def _infer_treatment_modalities(text: str, path: Path) -> tuple[str, ...]:
     lowered = f"{path.stem} {text[:3000]}".lower()
     matches = [
-        modality
-        for modality, hints in MODALITY_HINTS.items()
-        if any(_contains_hint(lowered, hint) for hint in hints)
+        modality for modality, hints in MODALITY_HINTS.items() if any(_contains_hint(lowered, hint) for hint in hints)
     ]
     return tuple(matches[:4])
 
@@ -465,9 +457,7 @@ def _infer_treatment_modalities(text: str, path: Path) -> tuple[str, ...]:
 def _infer_audience(text: str, path: Path) -> tuple[str, ...]:
     lowered = f"{path.stem} {text[:3000]}".lower()
     matches = [
-        audience
-        for audience, hints in AUDIENCE_HINTS.items()
-        if any(_contains_hint(lowered, hint) for hint in hints)
+        audience for audience, hints in AUDIENCE_HINTS.items() if any(_contains_hint(lowered, hint) for hint in hints)
     ]
     return tuple(matches[:3]) or ("adult",)
 
@@ -587,10 +577,7 @@ def _score_sentence(sentence: str, *, focus_terms: set[str]) -> int:
         )
         if cue in lowered
     )
-    if any(
-        noise in lowered
-        for noise in ("copyright", "privacy", "clinical trial", "share")
-    ):
+    if any(noise in lowered for noise in ("copyright", "privacy", "clinical trial", "share")):
         score -= 3
     return score
 
@@ -608,9 +595,7 @@ def _dedupe_preserve_order(items: list[str]) -> tuple[str, ...]:
     return tuple(ordered)
 
 
-def _build_learning_summary(
-    chunks: list[CorpusChunk], topic: str
-) -> tuple[str, tuple[str, ...]]:
+def _build_learning_summary(chunks: list[CorpusChunk], topic: str) -> tuple[str, tuple[str, ...]]:
     focus_terms = {topic.replace("_", " ")}
     for chunk in chunks:
         focus_terms.update(chunk.topics)
@@ -648,9 +633,7 @@ def _build_learning_summary(
             )
         )
     ]
-    practice_points = _dedupe_preserve_order(
-        [_clip(sentence, 180) for sentence in practice_candidates[:3]]
-    )
+    practice_points = _dedupe_preserve_order([_clip(sentence, 180) for sentence in practice_candidates[:3]])
     return summary, practice_points
 
 
@@ -671,18 +654,10 @@ def synthesize_learning_notes(chunks: list[CorpusChunk]) -> list[LearningNote]:
             continue
 
         source_ids = _dedupe_preserve_order([chunk.source_id for chunk in topic_chunks])
-        modalities = _dedupe_preserve_order(
-            [item for chunk in topic_chunks for item in chunk.treatment_modalities]
-        )
-        audience = _dedupe_preserve_order(
-            [item for chunk in topic_chunks for item in chunk.audience]
-        )
-        modes = _dedupe_preserve_order(
-            [item for chunk in topic_chunks for item in chunk.modes]
-        )
-        keywords = _dedupe_preserve_order(
-            [topic, *topic.replace("_", " ").split(), *modalities, *audience]
-        )
+        modalities = _dedupe_preserve_order([item for chunk in topic_chunks for item in chunk.treatment_modalities])
+        audience = _dedupe_preserve_order([item for chunk in topic_chunks for item in chunk.audience])
+        modes = _dedupe_preserve_order([item for chunk in topic_chunks for item in chunk.modes])
+        keywords = _dedupe_preserve_order([topic, *topic.replace("_", " ").split(), *modalities, *audience])
         notes.append(
             LearningNote(
                 note_id=f"learning:{topic}",
@@ -726,9 +701,7 @@ def discover_local_documents(base_dir: Path | None = None) -> list[Path]:
     )
 
 
-def build_chunks_from_local_document(
-    path: Path, base_dir: Path | None = None
-) -> list[CorpusChunk]:
+def build_chunks_from_local_document(path: Path, base_dir: Path | None = None) -> list[CorpusChunk]:
     text = _extract_text_from_local_file(path)
     chunks = chunk_text(text)
     if not chunks:
@@ -775,9 +748,7 @@ def ingest_registry(output_path: Path | None = None) -> Path:
         try:
             html = fetch_url_text(spec.url)
         except (HTTPError, URLError, TimeoutError) as exc:
-            failures.append(
-                {"source_id": spec.source_id, "url": spec.url, "error": str(exc)}
-            )
+            failures.append({"source_id": spec.source_id, "url": spec.url, "error": str(exc)})
             continue
 
         (raw_dir / f"{spec.source_id}.html").write_text(html, encoding="utf-8")

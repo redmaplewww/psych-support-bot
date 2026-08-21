@@ -2,9 +2,9 @@ import logging
 
 from psych_support_bot.ai.consultation import consultation_agent_descriptions
 from psych_support_bot.ai.prompts.templates import build_crisis_safety_prompt
+from psych_support_bot.ai.safety.crisis import build_crisis_reply
 from psych_support_bot.ai.schemas.messages import GeneratedReply
 from psych_support_bot.ai.schemas.state import GraphState
-from psych_support_bot.ai.safety.crisis import build_crisis_reply
 from psych_support_bot.infra.llm.generation import (
     generate_clinically_bounded_reply,
     generate_multidisciplinary_consultation,
@@ -20,9 +20,7 @@ def generate_response(state: GraphState) -> GraphState:
     # Only critical risk uses pure template reply (imminent danger)
     # High risk now goes through LLM with crisis safety prompt injected
     if risk_level == "critical":
-        reply_text = build_crisis_reply(
-            state["risk_result"], user_message=state["user_message"]
-        )
+        reply_text = build_crisis_reply(state["risk_result"], user_message=state["user_message"])
         state["consultation_opinions"] = []
     elif state["mode"] == "crisis" and risk_level == "high":
         # High-risk crisis: use LLM with crisis safety guidance
@@ -42,12 +40,10 @@ def generate_response(state: GraphState) -> GraphState:
                 loop_hint="Prioritize safety, validation, and gentle redirection to support resources.",
             )
             state["consultation_opinions"] = []
-        except Exception as exc:
+        except Exception:
             logger.exception("LLM generation failed for high-risk; using crisis template fallback.")
             state["fallback_used"] = True
-            reply_text = build_crisis_reply(
-                state["risk_result"], user_message=state["user_message"]
-            )
+            reply_text = build_crisis_reply(state["risk_result"], user_message=state["user_message"])
     else:
         try:
             if state.get("consultation_required", False):
@@ -61,9 +57,7 @@ def generate_response(state: GraphState) -> GraphState:
                     interview_stage=state.get("interview_stage", "engagement"),
                     question_strategy=state.get("question_strategy", "open"),
                     challenge_allowed=bool(state.get("challenge_allowed", False)),
-                    loop_hint=state.get(
-                        "loop_hint", "Start broad, reflect, then narrow."
-                    ),
+                    loop_hint=state.get("loop_hint", "Start broad, reflect, then narrow."),
                 )
                 state["consultation_opinions"] = opinions
             else:
@@ -79,12 +73,10 @@ def generate_response(state: GraphState) -> GraphState:
                     interview_stage=state.get("interview_stage", "engagement"),
                     question_strategy=state.get("question_strategy", "open"),
                     challenge_allowed=bool(state.get("challenge_allowed", False)),
-                    loop_hint=state.get(
-                        "loop_hint", "Start broad, reflect, then narrow."
-                    ),
+                    loop_hint=state.get("loop_hint", "Start broad, reflect, then narrow."),
                 )
                 state["consultation_opinions"] = []
-        except Exception as exc:
+        except Exception:
             logger.exception("LLM generation failed; using template fallback.")
             state["fallback_used"] = True
             is_zh = any("\u4e00" <= char <= "\u9fff" for char in state.get("user_message", ""))

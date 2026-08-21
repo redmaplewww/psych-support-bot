@@ -26,9 +26,7 @@ class UserProfile(Base):
     goals: Mapped[str] = mapped_column(Text, default="")
     support_preferences: Mapped[str] = mapped_column(Text, default="")
     risk_notes: Mapped[str] = mapped_column(Text, default="")
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=utcnow, onupdate=utcnow
-    )
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 class ConversationSession(Base):
@@ -80,9 +78,7 @@ class QuestionnaireSessionRecord(Base):
     current_index: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=utcnow, onupdate=utcnow
-    )
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 class CheckinRecord(Base):

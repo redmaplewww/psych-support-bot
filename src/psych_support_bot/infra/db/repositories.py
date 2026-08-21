@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-from datetime import date
 import json
+from datetime import date
 from uuid import uuid4
 
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from psych_support_bot.ai.schemas.messages import ConversationResponse
-from psych_support_bot.infra.db.base import Base
 from psych_support_bot.domain.assessments.schemas import (
     AssessmentResult,
     AssessmentScore,
     AssessmentType,
 )
 from psych_support_bot.domain.checkins.schemas import DailyCheckin
+from psych_support_bot.infra.db.base import Base
 from psych_support_bot.infra.db.models import (
     AssessmentRecord,
     CheckinRecord,
@@ -101,9 +101,7 @@ def get_recent_messages(session: Session, user_id: str, limit: int = 6) -> list[
     return list(session.execute(stmt).scalars())
 
 
-def get_user_sessions(
-    session: Session, user_id: str, limit: int = 20
-) -> list[ConversationSession]:
+def get_user_sessions(session: Session, user_id: str, limit: int = 20) -> list[ConversationSession]:
     stmt = (
         select(ConversationSession)
         .where(ConversationSession.user_id == user_id)
@@ -114,23 +112,12 @@ def get_user_sessions(
 
 
 def get_session_messages(session: Session, session_id: str) -> list[Message]:
-    stmt = (
-        select(Message)
-        .where(Message.session_id == session_id)
-        .order_by(Message.created_at)
-    )
+    stmt = select(Message).where(Message.session_id == session_id).order_by(Message.created_at)
     return list(session.execute(stmt).scalars())
 
 
-def get_user_risk_events(
-    session: Session, user_id: str, limit: int = 20
-) -> list[RiskEvent]:
-    stmt = (
-        select(RiskEvent)
-        .where(RiskEvent.user_id == user_id)
-        .order_by(desc(RiskEvent.created_at))
-        .limit(limit)
-    )
+def get_user_risk_events(session: Session, user_id: str, limit: int = 20) -> list[RiskEvent]:
+    stmt = select(RiskEvent).where(RiskEvent.user_id == user_id).order_by(desc(RiskEvent.created_at)).limit(limit)
     return list(session.execute(stmt).scalars())
 
 
@@ -138,15 +125,10 @@ def get_recent_assessment_summary(session: Session, user_id: str) -> str:
     records = get_user_assessments(session, user_id, limit=3)
     if not records:
         return ""
-    return "; ".join(
-        f"{record.assessment_type}:{record.score}({record.severity_band})"
-        for record in records
-    )
+    return "; ".join(f"{record.assessment_type}:{record.score}({record.severity_band})" for record in records)
 
 
-def get_user_assessments(
-    session: Session, user_id: str, *, limit: int = 50
-) -> list[AssessmentRecord]:
+def get_user_assessments(session: Session, user_id: str, *, limit: int = 50) -> list[AssessmentRecord]:
     stmt = (
         select(AssessmentRecord)
         .where(AssessmentRecord.user_id == user_id)
@@ -165,21 +147,11 @@ def build_memory_snapshot(session: Session, user_id: str) -> str:
 
     checkin_summary = ""
     if recent_checkins:
-        avg_mood = sum(item.mood_score for item in recent_checkins) / len(
-            recent_checkins
-        )
-        avg_anxiety = sum(item.anxiety_score for item in recent_checkins) / len(
-            recent_checkins
-        )
-        checkin_summary = (
-            f"recent check-ins mood={avg_mood:.1f}/10 anxiety={avg_anxiety:.1f}/10"
-        )
+        avg_mood = sum(item.mood_score for item in recent_checkins) / len(recent_checkins)
+        avg_anxiety = sum(item.anxiety_score for item in recent_checkins) / len(recent_checkins)
+        checkin_summary = f"recent check-ins mood={avg_mood:.1f}/10 anxiety={avg_anxiety:.1f}/10"
 
-    recent_excerpt = (
-        " | ".join(_safe(msg) for msg in reversed(recent_messages[-3:]))
-        if recent_messages
-        else ""
-    )
+    recent_excerpt = " | ".join(_safe(msg) for msg in reversed(recent_messages[-3:])) if recent_messages else ""
     profile_summary = ""
     if profile is not None:
         profile_summary = " || ".join(
@@ -250,9 +222,7 @@ def save_conversation_result(
     session.commit()
 
 
-def save_assessment(
-    session: Session, user_id: str, assessment: AssessmentScore
-) -> AssessmentRecord:
+def save_assessment(session: Session, user_id: str, assessment: AssessmentScore) -> AssessmentRecord:
     ensure_user(session, user_id)
     record = AssessmentRecord(
         user_id=user_id,
@@ -296,15 +266,11 @@ def create_questionnaire_session(
     return record
 
 
-def get_questionnaire_session(
-    session: Session, session_id: str
-) -> QuestionnaireSessionRecord | None:
+def get_questionnaire_session(session: Session, session_id: str) -> QuestionnaireSessionRecord | None:
     return session.get(QuestionnaireSessionRecord, session_id)
 
 
-def get_active_questionnaire_session(
-    session: Session, user_id: str
-) -> QuestionnaireSessionRecord | None:
+def get_active_questionnaire_session(session: Session, user_id: str) -> QuestionnaireSessionRecord | None:
     stmt = (
         select(QuestionnaireSessionRecord)
         .where(QuestionnaireSessionRecord.user_id == user_id)
@@ -337,13 +303,11 @@ def complete_questionnaire_session(
     return session_record
 
 
-def save_checkin(
-    session: Session, user_id: str, checkin: DailyCheckin
-) -> CheckinRecord:
+def save_checkin(session: Session, user_id: str, checkin: DailyCheckin) -> CheckinRecord:
     ensure_user(session, user_id)
     record = CheckinRecord(
         user_id=user_id,
-        checkin_date=date.today(),
+        checkin_date=date.today(),  # noqa: DTZ011
         mood_score=checkin.mood_score,
         anxiety_score=checkin.anxiety_score,
         sleep_hours=checkin.sleep_hours,
@@ -356,9 +320,7 @@ def save_checkin(
     return record
 
 
-def get_recent_checkins(
-    session: Session, user_id: str, limit: int = 7
-) -> list[CheckinRecord]:
+def get_recent_checkins(session: Session, user_id: str, limit: int = 7) -> list[CheckinRecord]:
     stmt = (
         select(CheckinRecord)
         .where(CheckinRecord.user_id == user_id)
@@ -368,9 +330,7 @@ def get_recent_checkins(
     return list(session.execute(stmt).scalars())
 
 
-def save_weekly_report(
-    session: Session, user_id: str, summary: str
-) -> WeeklyReportRecord:
+def save_weekly_report(session: Session, user_id: str, summary: str) -> WeeklyReportRecord:
     record = WeeklyReportRecord(user_id=user_id, summary=summary)
     session.add(record)
     session.commit()

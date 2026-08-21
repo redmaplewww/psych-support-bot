@@ -29,6 +29,7 @@ dependencies = [
 dev = [
     "httpx>=0.28.1",
     "pytest>=9.0.3",
+    "ruff>=0.6.0",
 ]
 
 [project.scripts]
@@ -45,3 +46,20 @@ package = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["F", "W", "I", "UP", "B", "SIM", "C4", "DTZ", "BLE", "RUF"]
+ignore = [
+    "RUF001", # Chinese quote characters in string literals
+    "RUF002", # Chinese quote characters in docstrings
+    "RUF003", # Chinese quote characters in comments
+    "E501",   # Line too long (many Chinese strings exceed 100 chars)
+    "B008",   # FastAPI Depends()/Query() in defaults is standard
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/psych_support_bot/knowledge_ingestion.py" = ["BLE001"]
+"src/psych_support_bot/infra/telemetry/tracing.py" = ["BLE001"]

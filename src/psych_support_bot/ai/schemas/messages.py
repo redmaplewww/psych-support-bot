@@ -2,9 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-ConversationMode = Literal[
-    "support", "assessment", "intervention", "planning", "crisis", "help"
-]
+ConversationMode = Literal["support", "assessment", "intervention", "planning", "crisis", "help"]
 RiskLevel = Literal["low", "elevated", "high", "critical"]
 
 

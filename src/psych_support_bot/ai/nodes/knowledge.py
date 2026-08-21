@@ -1,6 +1,6 @@
+from psych_support_bot.ai.knowledge.index import detect_topics
 from psych_support_bot.ai.schemas.state import GraphState
 from psych_support_bot.ai.tools.knowledge_base import get_knowledge_context
-from psych_support_bot.ai.knowledge.index import detect_topics
 
 
 def load_knowledge_context(state: GraphState) -> GraphState:

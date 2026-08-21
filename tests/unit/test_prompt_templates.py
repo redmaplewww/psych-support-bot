@@ -48,6 +48,4 @@ def test_consultation_synthesis_prompt_requires_visible_labels() -> None:
     )
 
     assert "回应, 工作性假设, and 下一问" in prompt
-    assert (
-        "The visible reply must use the labels 回应, 工作性假设, and 下一问" in prompt
-    )
+    assert "The visible reply must use the labels 回应, 工作性假设, and 下一问" in prompt

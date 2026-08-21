@@ -1,6 +1,5 @@
 from psych_support_bot.ai.schemas.messages import RiskResult
 from psych_support_bot.ai.utils.text_matching import (
-    _contains_keyword,
     _match_any,
     _normalize_text,
 )
@@ -174,11 +173,9 @@ CHINESE_SUICIDE_DENIAL_PATTERNS = [
 
 def _has_negation(text: str) -> bool:
     normalized, compact = _normalize_text(text)
-    if _match_any(normalized, compact, NEGATION_PATTERNS):
-        return True
-    if _match_any(normalized, compact, CHINESE_SUICIDE_DENIAL_PATTERNS):
-        return True
-    return False
+    return _match_any(normalized, compact, NEGATION_PATTERNS) or _match_any(
+        normalized, compact, CHINESE_SUICIDE_DENIAL_PATTERNS
+    )
 
 
 IMMINENT_MEANS_PATTERNS = [
@@ -199,11 +196,7 @@ def classify_message_risk(text: str) -> RiskResult:
     has_imminent_means = _match_any(normalized, compact, IMMINENT_MEANS_PATTERNS)
     has_negation = _has_negation(text)
 
-    if (
-        has_direct_critical
-        or has_imminent_means
-        or (has_high_risk and has_critical and not has_negation)
-    ):
+    if has_direct_critical or has_imminent_means or (has_high_risk and has_critical and not has_negation):
         return RiskResult(
             risk_level="critical",
             risk_types=["safety", "immediate_danger"],

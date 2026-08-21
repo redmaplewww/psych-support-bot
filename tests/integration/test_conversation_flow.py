@@ -5,16 +5,13 @@ from psych_support_bot.infra.db.init_db import init_db
 from psych_support_bot.infra.db.session import SessionLocal
 from psych_support_bot.services.conversation import conversation_service
 
-
 init_db()
 
 
 def test_support_flow_returns_response() -> None:
     with SessionLocal() as session:
         result = conversation_service.respond(
-            ConversationRequest(
-                user_id="test-user", message="I feel stressed and want support"
-            ),
+            ConversationRequest(user_id="test-user", message="I feel stressed and want support"),
             session=session,
         )
 
@@ -32,9 +29,7 @@ def test_support_flow_returns_response() -> None:
 def test_crisis_flow_triggers_high_risk() -> None:
     with SessionLocal() as session:
         result = conversation_service.respond(
-            ConversationRequest(
-                user_id="test-user", message="I want to die and hurt myself"
-            ),
+            ConversationRequest(user_id="test-user", message="I want to die and hurt myself"),
             session=session,
         )
 
@@ -45,9 +40,7 @@ def test_crisis_flow_triggers_high_risk() -> None:
 def test_chinese_crisis_flow_triggers_crisis_mode() -> None:
     with SessionLocal() as session:
         result = conversation_service.respond(
-            ConversationRequest(
-                user_id="test-user", message="我今晚想自杀，我手边有刀"
-            ),
+            ConversationRequest(user_id="test-user", message="我今晚想自杀，我手边有刀"),
             session=session,
         )
 
@@ -59,9 +52,7 @@ def test_chinese_crisis_flow_triggers_crisis_mode() -> None:
 def test_non_crisis_support_reply_is_not_treatment_heavy() -> None:
     with SessionLocal() as session:
         result = conversation_service.respond(
-            ConversationRequest(
-                user_id="test-user", message="我最近压力很大，总觉得心里发紧"
-            ),
+            ConversationRequest(user_id="test-user", message="我最近压力很大，总觉得心里发紧"),
             session=session,
         )
 
@@ -124,9 +115,7 @@ def test_assessment_followup_includes_supportive_interpretation() -> None:
 def test_consultation_metadata_is_exposed_for_consult_request() -> None:
     with SessionLocal() as session:
         result = conversation_service.respond(
-            ConversationRequest(
-                user_id="consult-user", message="请从不同流派会诊一下我的治疗方向"
-            ),
+            ConversationRequest(user_id="consult-user", message="请从不同流派会诊一下我的治疗方向"),
             session=session,
         )
 
@@ -220,7 +209,10 @@ def test_non_assessment_message_during_assessment_falls_back_to_support() -> Non
 
     # 应当回落到对话图，不进入 invalid_answer 分支
     assert mid is not None
-    assert mid.debug.get("source") not in {"questionnaire_progress", "assessment_result"}
+    assert mid.debug.get("source") not in {
+        "questionnaire_progress",
+        "assessment_result",
+    }
     assert mid.mode in {"support", "intervention", "planning", "crisis"}
     assert mid.reply.text
 

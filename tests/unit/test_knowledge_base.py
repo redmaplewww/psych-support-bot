@@ -12,9 +12,7 @@ from psych_support_bot.ai.tools.knowledge_base import get_knowledge_context
 
 
 def test_detect_topics_prioritizes_relevant_matches() -> None:
-    topics = detect_topics(
-        "I feel burned out, exhausted, and keep procrastinating because I am overwhelmed."
-    )
+    topics = detect_topics("I feel burned out, exhausted, and keep procrastinating because I am overwhelmed.")
 
     assert "burnout" in topics
     assert "procrastination" in topics
@@ -30,10 +28,7 @@ def test_retrieve_entries_returns_indexed_matches() -> None:
 
     entry_ids = {entry.entry_id for entry in entries}
     assert any(entry_id.startswith("dbt-exercise:tipp_full") for entry_id in entry_ids)
-    assert any(
-        entry_id.startswith("psychoeducation:panic_attacks_overview")
-        for entry_id in entry_ids
-    )
+    assert any(entry_id.startswith("psychoeducation:panic_attacks_overview") for entry_id in entry_ids)
 
 
 def test_intervention_context_includes_indexed_knowledge() -> None:
@@ -70,9 +65,7 @@ def test_build_index_includes_local_runtime_corpus(monkeypatch) -> None:
         treatment_modalities = ("cbt_i",)
         audience = ("adult",)
         chapter_hint = "Chapter 3 Sleep Restriction"
-        content = (
-            "Local CBT-I chapter discussing stimulus control and sleep restriction."
-        )
+        content = "Local CBT-I chapter discussing stimulus control and sleep restriction."
         url = "local://cbt_sleep_manual.pdf"
 
     monkeypatch.setattr(
@@ -81,7 +74,7 @@ def test_build_index_includes_local_runtime_corpus(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         "psych_support_bot.ai.knowledge.index.load_learning_notes",
-        lambda: [],
+        list,
     )
 
     entries = build_knowledge_index()
@@ -105,7 +98,7 @@ def test_build_index_includes_active_learning_notes(monkeypatch) -> None:
 
     monkeypatch.setattr(
         "psych_support_bot.ai.knowledge.index.load_all_corpora",
-        lambda: [],
+        list,
     )
     monkeypatch.setattr(
         "psych_support_bot.ai.knowledge.index.load_learning_notes",

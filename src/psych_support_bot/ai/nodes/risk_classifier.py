@@ -1,6 +1,6 @@
+from psych_support_bot.ai.safety.rules import classify_message_risk
 from psych_support_bot.ai.schemas.messages import RiskResult
 from psych_support_bot.ai.schemas.state import GraphState
-from psych_support_bot.ai.safety.rules import classify_message_risk
 
 
 def classify_risk(state: GraphState) -> GraphState:

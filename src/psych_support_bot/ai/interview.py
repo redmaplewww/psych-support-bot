@@ -1,7 +1,6 @@
 from psych_support_bot.ai.schemas.messages import ConversationMode, RiskLevel
 from psych_support_bot.ai.utils.text_matching import _contains_keyword, _normalize_text
 
-
 OPEN_EXPLORATION_KEYWORDS = [
     "不知道",
     "说不清",
@@ -123,17 +122,12 @@ def determine_interview_process(
     has_avoidance = _matches_any(normalized, compact, AVOIDANCE_KEYWORDS)
     has_absolutist = _matches_any(normalized, compact, ABSOLUTIST_KEYWORDS)
     has_minimization = _matches_any(normalized, compact, MINIMIZATION_KEYWORDS)
-    has_relational_disclosure = _matches_any(
-        normalized, compact, RELATIONAL_DISCLOSURE_KEYWORDS
-    )
+    has_relational_disclosure = _matches_any(normalized, compact, RELATIONAL_DISCLOSURE_KEYWORDS)
     has_exhaustion = _matches_any(normalized, compact, EXHAUSTION_KEYWORDS)
     has_pattern = has_strong_pattern or (
-        has_weak_pattern
-        and (has_contradiction or has_absolutist or has_relational_disclosure)
+        has_weak_pattern and (has_contradiction or has_absolutist or has_relational_disclosure)
     )
-    has_actionable_avoidance = has_avoidance and (
-        has_relational_disclosure or not has_exhaustion
-    )
+    has_actionable_avoidance = has_avoidance and (has_relational_disclosure or not has_exhaustion)
 
     stage = "engagement"
     question_strategy = "open"
@@ -159,12 +153,16 @@ def determine_interview_process(
     if has_open_exploration:
         stage = "exploration"
         question_strategy = "open"
-        loop_hint = "Use open questions to uncover the situation, then reflect back the user's own words before narrowing."
+        loop_hint = (
+            "Use open questions to uncover the situation, then reflect back the user's own words before narrowing."
+        )
 
     if has_pattern:
         stage = "pattern_analysis"
         question_strategy = "looping"
-        loop_hint = "Track sequence: trigger -> thought -> feeling -> action -> consequence, and revisit the unclear link."
+        loop_hint = (
+            "Track sequence: trigger -> thought -> feeling -> action -> consequence, and revisit the unclear link."
+        )
 
     if has_contradiction:
         stage = "hypothesis_testing"
@@ -176,7 +174,9 @@ def determine_interview_process(
         stage = "hypothesis_testing"
         question_strategy = "gentle_challenge"
         challenge_allowed = True
-        loop_hint = "Test absolute conclusions by asking for evidence, exceptions, and what would count as a different outcome."
+        loop_hint = (
+            "Test absolute conclusions by asking for evidence, exceptions, and what would count as a different outcome."
+        )
 
     if has_actionable_avoidance or has_minimization:
         stage = "resistance_exploration"
@@ -190,9 +190,7 @@ def determine_interview_process(
         challenge_allowed = True
         loop_hint = "Map the repeated sequence first, then test the point where the user's explanation becomes contradictory or overly absolute."
 
-    if has_exhaustion and not (
-        has_contradiction or has_absolutist or has_actionable_avoidance
-    ):
+    if has_exhaustion and not (has_contradiction or has_absolutist or has_actionable_avoidance):
         stage = "exploration"
         question_strategy = "open"
         challenge_allowed = False

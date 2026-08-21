@@ -5,15 +5,12 @@ from pathlib import Path
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 ENV_FILE = PROJECT_ROOT / ".env"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=str(ENV_FILE), env_file_encoding="utf-8", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=str(ENV_FILE), env_file_encoding="utf-8", extra="ignore")
 
     app_name: str = "AI Psychological Support Bot"
     environment: str = "development"
@@ -24,9 +21,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     langfuse_public_key: str = Field(default="", alias="LANGFUSE_PUBLIC_KEY")
     langfuse_secret_key: str = Field(default="", alias="LANGFUSE_SECRET_KEY")
-    langfuse_host: str = Field(
-        default="https://cloud.langfuse.com", alias="LANGFUSE_HOST"
-    )
+    langfuse_host: str = Field(default="https://cloud.langfuse.com", alias="LANGFUSE_HOST")
     default_conversation_mode: str = "support"
     app_debug: bool = False
 

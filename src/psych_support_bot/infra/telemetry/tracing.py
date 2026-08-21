@@ -22,9 +22,7 @@ def tracing_config() -> dict[str, str]:
     return {
         "host": settings.langfuse_host,
         "public_key": settings.langfuse_public_key,
-        "configured": str(
-            bool(settings.langfuse_public_key and settings.langfuse_secret_key)
-        ).lower(),
+        "configured": str(bool(settings.langfuse_public_key and settings.langfuse_secret_key)).lower(),
     }
 
 

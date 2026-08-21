@@ -5,8 +5,8 @@ from psych_support_bot.knowledge_ingestion import (
     CorpusChunk,
     LearningNote,
     SourceSpec,
-    build_chunks_from_source,
     build_chunks_from_local_document,
+    build_chunks_from_source,
     chunk_text,
     discover_local_documents,
     html_to_text,
@@ -93,9 +93,7 @@ def test_ingest_registry_skips_failed_sources(monkeypatch, tmp_path: Path) -> No
 
     output_path = ingest_registry(output_path=tmp_path / "out.json")
     payload = json.loads(output_path.read_text(encoding="utf-8"))
-    report = json.loads(
-        (tmp_path / "ingestion_report.json").read_text(encoding="utf-8")
-    )
+    report = json.loads((tmp_path / "ingestion_report.json").read_text(encoding="utf-8"))
 
     assert payload
     assert any(item["source_id"] == "ok_source" for item in payload)
@@ -129,9 +127,7 @@ def test_discover_and_chunk_local_documents(tmp_path: Path, monkeypatch) -> None
     assert "cbt" in chunks[0].keywords or chunks[0].treatment_modalities == ()
 
 
-def test_ingest_local_documents_writes_local_corpus(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_ingest_local_documents_writes_local_corpus(tmp_path: Path, monkeypatch) -> None:
     drop = tmp_path / "local_drop"
     drop.mkdir()
     (drop / "sleep_manual.txt").write_text(
@@ -149,13 +145,9 @@ def test_ingest_local_documents_writes_local_corpus(
         lambda: tmp_path,
     )
 
-    output_path = ingest_local_documents(
-        source_dir=drop, output_path=tmp_path / "local.json"
-    )
+    output_path = ingest_local_documents(source_dir=drop, output_path=tmp_path / "local.json")
     payload = json.loads(output_path.read_text(encoding="utf-8"))
-    report = json.loads(
-        (tmp_path / "local_import_report.json").read_text(encoding="utf-8")
-    )
+    report = json.loads((tmp_path / "local_import_report.json").read_text(encoding="utf-8"))
 
     assert payload
     assert payload[0]["entry_id"].startswith("local:")
@@ -234,7 +226,7 @@ def test_load_all_corpora_includes_local_and_public(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         "psych_support_bot.knowledge_ingestion.load_ingested_corpus",
-        lambda: [],
+        list,
     )
 
     corpus = load_all_corpora()
@@ -279,14 +271,10 @@ def test_html_to_text_removes_nimh_banner_and_repeated_nav() -> None:
     assert "An official website of the United States government" not in text
     assert "Quick Links" not in text
     assert "988 Suicide & Crisis Lifeline" in text
-    assert (
-        "primary care provider can perform an initial mental health screening" in text
-    )
+    assert "primary care provider can perform an initial mental health screening" in text
 
 
-def test_local_metadata_inference_avoids_false_act_match(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_local_metadata_inference_avoids_false_act_match(tmp_path: Path, monkeypatch) -> None:
     drop = tmp_path / "local_drop"
     drop.mkdir()
     document = drop / "anxiety_notes.md"

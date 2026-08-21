@@ -24,10 +24,7 @@ def run_eval_cases() -> list[dict[str, str | bool]]:
                 ),
                 session=session,
             )
-            passed = (
-                response.mode == case["expected_mode"]
-                and response.risk.risk_level == case["expected_risk"]
-            )
+            passed = response.mode == case["expected_mode"] and response.risk.risk_level == case["expected_risk"]
             results.append(
                 {
                     "name": case["name"],

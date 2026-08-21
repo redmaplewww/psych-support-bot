@@ -1,5 +1,6 @@
-from fastapi import HTTPException
 from typing import Any, cast
+
+from fastapi import HTTPException
 
 from psych_support_bot.domain.assessments.questionnaires import QUESTIONNAIRES
 from psych_support_bot.domain.assessments.schemas import (
@@ -115,9 +116,7 @@ EN_GUIDE_OVERRIDES: dict[str, dict[str, object]] = {
 }
 
 
-def questionnaire_guide(
-    assessment_type: AssessmentType, language: str = "zh"
-) -> QuestionnaireGuide:
+def questionnaire_guide(assessment_type: AssessmentType, language: str = "zh") -> QuestionnaireGuide:
     definition = cast(dict[str, Any], QUESTIONNAIRES[assessment_type]).copy()
     if language == "en":
         definition.update(EN_GUIDE_OVERRIDES[assessment_type])
@@ -139,10 +138,7 @@ def questionnaire_guide(
 
 
 def list_questionnaire_guides(language: str = "zh") -> list[QuestionnaireGuide]:
-    return [
-        questionnaire_guide(assessment_type, language=language)
-        for assessment_type in QUESTIONNAIRES
-    ]
+    return [questionnaire_guide(assessment_type, language=language) for assessment_type in QUESTIONNAIRES]
 
 
 def build_questionnaire_session_view(
@@ -225,15 +221,11 @@ def detect_questionnaire_request(message: str) -> AssessmentType | None:
     return None
 
 
-def parse_questionnaire_answer(
-    message: str, assessment_type: AssessmentType
-) -> int | None:
+def parse_questionnaire_answer(message: str, assessment_type: AssessmentType) -> int | None:
     lowered = message.strip().casefold()
     if lowered.isdigit():
         value = int(lowered)
-        max_score = int(
-            cast(dict[str, Any], QUESTIONNAIRES[assessment_type])["item_max_score"]
-        )
+        max_score = int(cast(dict[str, Any], QUESTIONNAIRES[assessment_type])["item_max_score"])
         if 0 <= value <= max_score:
             return value
 
@@ -287,14 +279,10 @@ def detect_skip_or_exit(message: str) -> bool:
     return any(word in lowered for word in skip_words)
 
 
-def build_questionnaire_prompt(
-    view: QuestionnaireSessionView, *, error_hint: str | None = None
-) -> str:
+def build_questionnaire_prompt(view: QuestionnaireSessionView, *, error_hint: str | None = None) -> str:
     if view.next_item is None:
         return f"{view.questionnaire_title} is complete. I can help you interpret the result in plain language."
-    options_text = ", ".join(
-        f"{option.value}={option.label}" for option in view.next_item.options
-    )
+    options_text = ", ".join(f"{option.value}={option.label}" for option in view.next_item.options)
     answered = view.current_index
     remaining = view.total_items - answered - 1
     pct = round((answered + 1) / view.total_items * 100)
@@ -308,9 +296,7 @@ def build_questionnaire_prompt(
     return prompt
 
 
-def build_assessment_followup_reply(
-    result: AssessmentResult, *, user_message: str = ""
-) -> str:
+def build_assessment_followup_reply(result: AssessmentResult, *, user_message: str = "") -> str:
     is_zh = bool(user_message) and any("\u4e00" <= c <= "\u9fff" for c in user_message)
     lines: list[str] = []
 
@@ -319,9 +305,7 @@ def build_assessment_followup_reply(
         lines.append(f"你的得分是{result.score}，属于{result.severity_band}范围。")
     else:
         lines.append(f"Thanks for completing {result.questionnaire_title}.")
-        lines.append(
-            f"Your score is {result.score}, which falls in the {result.severity_band} range."
-        )
+        lines.append(f"Your score is {result.score}, which falls in the {result.severity_band} range.")
 
     lines.append(result.interpretation.plain_meaning)
     lines.append(result.interpretation.functional_impact)
@@ -331,13 +315,9 @@ def build_assessment_followup_reply(
         lines.extend(flag.message for flag in result.interpretation.safety_flags)
 
     if is_zh:
-        lines.append(
-            "看完结果后，如果你想聊聊感受，或者想了解有什么小方法可以试试，随时告诉我。"
-        )
+        lines.append("看完结果后，如果你想聊聊感受，或者想了解有什么小方法可以试试，随时告诉我。")
     else:
-        lines.append(
-            "Is there anything from today's result you'd like to talk more about?"
-        )
+        lines.append("Is there anything from today's result you'd like to talk more about?")
 
     return " ".join(lines)
 
@@ -352,26 +332,19 @@ def validate_score(assessment_type: AssessmentType, score: int) -> None:
         )
 
 
-def score_from_answers(
-    assessment_type: AssessmentType, answers: AssessmentAnswerSet
-) -> int:
+def score_from_answers(assessment_type: AssessmentType, answers: AssessmentAnswerSet) -> int:
     definition = cast(dict[str, Any], QUESTIONNAIRES[assessment_type])
     expected_length = len(cast(list[str], definition["items"]))
     item_max_score = int(definition["item_max_score"])
     if len(answers.answers) != expected_length:
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"{assessment_type} requires {expected_length} answers; "
-                f"received {len(answers.answers)}."
-            ),
+            detail=(f"{assessment_type} requires {expected_length} answers; received {len(answers.answers)}."),
         )
     if any(answer < 0 or answer > item_max_score for answer in answers.answers):
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"Each answer for {assessment_type} must be between 0 and {item_max_score}."
-            ),
+            detail=(f"Each answer for {assessment_type} must be between 0 and {item_max_score}."),
         )
     return sum(answers.answers)
 
@@ -384,7 +357,9 @@ def interpretation_for_result(
     language: str = "en",
 ) -> AssessmentInterpretation:
     if language == "zh":
-        common_disclaimer = "这是一份筛查结果，不等同于临床诊断。需要结合你近期的压力、身体状况、睡眠情况和日常功能一起理解。"
+        common_disclaimer = (
+            "这是一份筛查结果，不等同于临床诊断。需要结合你近期的压力、身体状况、睡眠情况和日常功能一起理解。"
+        )
         if assessment_type == "phq9":
             plain_meaning = {
                 "minimal": "你的回答显示，目前抑郁相关症状水平较低。",
@@ -393,7 +368,9 @@ def interpretation_for_result(
                 "moderately_severe": "你的回答显示，目前抑郁相关症状处在相对较高的水平。",
                 "severe": "你的回答显示，目前抑郁相关症状水平较高。",
             }[severity_band]
-            functional_impact = "这种状态可能会影响动力、注意力、精力、自我照顾能力，以及维持工作、学习或人际关系的能力。"
+            functional_impact = (
+                "这种状态可能会影响动力、注意力、精力、自我照顾能力，以及维持工作、学习或人际关系的能力。"
+            )
         elif assessment_type == "gad7":
             plain_meaning = {
                 "minimal": "你的回答显示，目前焦虑相关症状水平较低。",
@@ -409,14 +386,16 @@ def interpretation_for_result(
                 "moderate": "你的回答显示，睡眠问题可能已经明显影响到白天生活。",
                 "severe": "你的回答显示，目前失眠相关痛苦或功能受损程度较高。",
             }[severity_band]
-            functional_impact = (
-                "这种状态可能影响疲劳感、情绪、注意力、白天表现，以及你对睡眠的信心。"
-            )
+            functional_impact = "这种状态可能影响疲劳感、情绪、注意力、白天表现，以及你对睡眠的信心。"
 
         if severity_band in {"minimal", "none"}:
-            care_consideration = "从筛查结果看，症状相对较轻；但如果你的主观痛苦感或日常影响仍然明显，依然值得考虑寻求支持。"
+            care_consideration = (
+                "从筛查结果看，症状相对较轻；但如果你的主观痛苦感或日常影响仍然明显，依然值得考虑寻求支持。"
+            )
         elif severity_band in {"mild", "subthreshold"}:
-            care_consideration = "目前已经出现一些症状。轻量自我照顾、心理教育和持续观察可能会有帮助，尤其当这些状态与近期压力有关时。"
+            care_consideration = (
+                "目前已经出现一些症状。轻量自我照顾、心理教育和持续观察可能会有帮助，尤其当这些状态与近期压力有关时。"
+            )
         elif severity_band == "moderate":
             care_consideration = "这个程度可能已经影响日常生活。如果症状持续超过几周，或者已经干扰睡眠、工作、学习或关系，值得认真考虑专业支持。"
         else:
@@ -447,7 +426,9 @@ def interpretation_for_result(
                 "moderate": "Your responses suggest sleep problems may be meaningfully affecting daytime life.",
                 "severe": "Your responses suggest a high level of insomnia-related distress or impairment right now.",
             }[severity_band]
-            functional_impact = "This pattern can affect fatigue, mood, concentration, daytime performance, and confidence about sleep."
+            functional_impact = (
+                "This pattern can affect fatigue, mood, concentration, daytime performance, and confidence about sleep."
+            )
 
         if severity_band in {"minimal", "none"}:
             care_consideration = "Symptoms look relatively low on this screening. If distress or daily-life impact still feels significant, support can still be worth considering."
@@ -481,9 +462,7 @@ def interpretation_for_result(
     )
 
 
-def build_assessment_score(
-    assessment_type: AssessmentType, score: int
-) -> AssessmentScore:
+def build_assessment_score(assessment_type: AssessmentType, score: int) -> AssessmentScore:
     validate_score(assessment_type, score)
     return AssessmentScore(
         assessment_type=assessment_type,

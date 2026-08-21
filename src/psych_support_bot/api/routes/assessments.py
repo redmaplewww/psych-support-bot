@@ -16,7 +16,6 @@ from psych_support_bot.domain.assessments.schemas import (
 )
 from psych_support_bot.domain.assessments.service import (
     build_assessment_result,
-    build_assessment_score,
     build_questionnaire_session_view,
     list_questionnaire_guides,
     questionnaire_guide,
@@ -57,11 +56,7 @@ def create_assessment(
     payload: AssessmentRequest,
     session: Session = Depends(get_db_session),
 ) -> AssessmentResult:
-    answer_set = (
-        AssessmentAnswerSet(answers=payload.answers)
-        if payload.answers is not None
-        else None
-    )
+    answer_set = AssessmentAnswerSet(answers=payload.answers) if payload.answers is not None else None
     assessment = build_assessment_result(
         payload.assessment_type,
         score=payload.score,
@@ -76,9 +71,7 @@ def start_questionnaire_session(
     payload: QuestionnaireSessionStartRequest,
     session: Session = Depends(get_db_session),
 ) -> QuestionnaireSessionView:
-    record = create_questionnaire_session(
-        session, payload.user_id, payload.assessment_type
-    )
+    record = create_questionnaire_session(session, payload.user_id, payload.assessment_type)
     return build_questionnaire_session_view(
         session_id=record.id,
         user_id=record.user_id,
@@ -91,18 +84,14 @@ def start_questionnaire_session(
 @router.get("/sessions/{session_id}", response_model=QuestionnaireSessionView)
 def get_questionnaire_session_view(
     session_id: str,
-    user_id: str = Query(
-        ..., min_length=1, description="User ID for ownership verification"
-    ),
+    user_id: str = Query(..., min_length=1, description="User ID for ownership verification"),
     session: Session = Depends(get_db_session),
 ) -> QuestionnaireSessionView:
     record = get_questionnaire_session(session, session_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Questionnaire session not found")
     if record.user_id != user_id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this session"
-        )
+        raise HTTPException(status_code=403, detail="Not authorized to access this session")
     answers = json.loads(record.answers_json or "[]")
     return build_questionnaire_session_view(
         session_id=record.id,
@@ -117,29 +106,21 @@ def get_questionnaire_session_view(
 def answer_questionnaire_session(
     session_id: str,
     payload: QuestionnaireSessionAnswerRequest,
-    user_id: str = Query(
-        ..., min_length=1, description="User ID for ownership verification"
-    ),
+    user_id: str = Query(..., min_length=1, description="User ID for ownership verification"),
     session: Session = Depends(get_db_session),
 ) -> QuestionnaireSessionView:
     record = get_questionnaire_session(session, session_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Questionnaire session not found")
     if record.user_id != user_id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this session"
-        )
+        raise HTTPException(status_code=403, detail="Not authorized to access this session")
     if record.status == "completed":
-        raise HTTPException(
-            status_code=409, detail="Questionnaire session already completed"
-        )
+        raise HTTPException(status_code=409, detail="Questionnaire session already completed")
 
     answers = json.loads(record.answers_json or "[]")
     max_answers = len(questionnaire_guide(record.assessment_type).items)  # type: ignore[arg-type]
     if len(answers) > max_answers:
-        raise HTTPException(
-            status_code=409, detail="All questions have already been answered"
-        )
+        raise HTTPException(status_code=409, detail="All questions have already been answered")
 
     max_val = 3 if record.assessment_type in ("phq9", "gad7") else 4
     if not (0 <= payload.value <= max_val):
@@ -159,23 +140,17 @@ def answer_questionnaire_session(
     )
 
 
-@router.post(
-    "/sessions/{session_id}/complete", response_model=QuestionnaireSessionResult
-)
+@router.post("/sessions/{session_id}/complete", response_model=QuestionnaireSessionResult)
 def complete_questionnaire_session_route(
     session_id: str,
-    user_id: str = Query(
-        ..., min_length=1, description="User ID for ownership verification"
-    ),
+    user_id: str = Query(..., min_length=1, description="User ID for ownership verification"),
     session: Session = Depends(get_db_session),
 ) -> QuestionnaireSessionResult:
     record = get_questionnaire_session(session, session_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Questionnaire session not found")
     if record.user_id != user_id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this session"
-        )
+        raise HTTPException(status_code=403, detail="Not authorized to access this session")
 
     answers = json.loads(record.answers_json or "[]")
     assessment_type = record.assessment_type  # type: ignore[assignment]

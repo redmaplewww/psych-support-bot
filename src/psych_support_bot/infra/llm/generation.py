@@ -11,8 +11,6 @@ from psych_support_bot.ai.prompts.templates import (
     build_consultation_synthesis_prompt,
     build_context_prompt,
     build_diagnosis_refusal_prompt,
-    build_language_lock_prompt,
-    build_language_lock_prompt_for_language,
     build_output_prompt,
     build_process_prompt,
     build_role_prompt,
@@ -20,7 +18,10 @@ from psych_support_bot.ai.prompts.templates import (
 from psych_support_bot.ai.routers.intent import DIAGNOSIS_KEYWORDS
 from psych_support_bot.ai.utils.text_matching import _contains_keyword, _normalize_text
 from psych_support_bot.infra.config.settings import get_settings
-from psych_support_bot.infra.llm.factory import build_chat_model, get_temperature_for_mode
+from psych_support_bot.infra.llm.factory import (
+    build_chat_model,
+    get_temperature_for_mode,
+)
 from psych_support_bot.infra.telemetry.tracing import trace_span, update_span_output
 
 logger = logging.getLogger(__name__)
@@ -55,17 +56,19 @@ def _enforce_language(output: str, expected_language: str) -> str:
     output_has_english_words = _contains_ascii_words(output)
 
     if user_is_chinese and output_has_english_words:
-        raise ValueError(
-            "Language mismatch: Chinese user input produced English output"
-        )
+        raise ValueError("Language mismatch: Chinese user input produced English output")
     if not user_is_chinese and output_has_chinese:
-        raise ValueError(
-            "Language mismatch: English user input produced Chinese output"
-        )
+        raise ValueError("Language mismatch: English user input produced Chinese output")
     return output
 
 
-def _invoke(system_prompt: str, user_message: str, expected_language: str, *, mode: str = "support") -> str:
+def _invoke(
+    system_prompt: str,
+    user_message: str,
+    expected_language: str,
+    *,
+    mode: str = "support",
+) -> str:
     model = build_chat_model(temperature=get_temperature_for_mode(mode))
     messages = [
         SystemMessage(content=system_prompt),
@@ -187,9 +190,7 @@ def generate_multidisciplinary_consultation(
         ]
         opinions = [future.result() for future in futures]
 
-    opinions_text = "\n\n".join(
-        f"[{item['agent']} - {item['school']}]\n{item['opinion']}" for item in opinions
-    )
+    opinions_text = "\n\n".join(f"[{item['agent']} - {item['school']}]\n{item['opinion']}" for item in opinions)
     synthesis_prompt = build_consultation_synthesis_prompt(
         mode=mode,
         risk_level=risk_level,
@@ -242,9 +243,7 @@ def generate_clinically_bounded_reply(
                 memory_summary=memory_summary,
                 knowledge_context=knowledge_context,
             ),
-            build_output_prompt(
-                mode=mode, risk_level=risk_level, user_message=user_message
-            ),
+            build_output_prompt(mode=mode, risk_level=risk_level, user_message=user_message),
         ]
     )
     # Inject diagnosis refusal prompt if user is asking for a diagnosis

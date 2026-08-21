@@ -1,5 +1,5 @@
-from typing import cast
 import time
+from typing import cast
 
 from psych_support_bot.ai.nodes.response_generator import generate_response
 from psych_support_bot.ai.schemas.messages import (
@@ -9,15 +9,13 @@ from psych_support_bot.ai.schemas.messages import (
     RiskResult,
 )
 from psych_support_bot.ai.schemas.state import GraphState
-from psych_support_bot.infra.llm.generation import _enforce_language
 from psych_support_bot.infra.llm.generation import (
+    _enforce_language,
     generate_multidisciplinary_consultation,
 )
 
 
-def _build_state(
-    *, mode: ConversationMode, user_message: str, risk_level: RiskLevel = "low"
-) -> GraphState:
+def _build_state(*, mode: ConversationMode, user_message: str, risk_level: RiskLevel = "low") -> GraphState:
     return cast(
         GraphState,
         {
@@ -59,9 +57,7 @@ def test_llm_failure_returns_template_fallback(monkeypatch) -> None:
         "psych_support_bot.ai.nodes.response_generator.generate_clinically_bounded_reply",
         lambda **_: (_ for _ in ()).throw(RuntimeError("llm unavailable")),
     )
-    state = _build_state(
-        mode="support", user_message="I feel stressed and need support"
-    )
+    state = _build_state(mode="support", user_message="I feel stressed and need support")
 
     result = generate_response(state)
 
@@ -121,10 +117,7 @@ def test_consultation_mode_collects_all_agent_opinions(monkeypatch) -> None:
 
     assert result["generated_reply"].text == "integrated consultation reply"
     assert len(result["consultation_opinions"]) == 5
-    assert (
-        result["consultation_notes"]
-        == "5 agents consulted; stage=engagement; question=open"
-    )
+    assert result["consultation_notes"] == "5 agents consulted; stage=engagement; question=open"
 
 
 def test_single_response_path_includes_process_metadata(monkeypatch) -> None:
@@ -139,16 +132,13 @@ def test_single_response_path_includes_process_metadata(monkeypatch) -> None:
     result = generate_response(state)
 
     assert result["generated_reply"].text == "supportive process reply"
-    assert (
-        result["consultation_notes"]
-        == "single response path; stage=exploration; question=open"
-    )
+    assert result["consultation_notes"] == "single response path; stage=exploration; question=open"
 
 
 def test_language_enforcement_rejects_english_for_chinese_user() -> None:
     try:
         _enforce_language("This is English output", "zh")
-        assert False, "expected ValueError"
+        raise AssertionError("expected ValueError")
     except ValueError as exc:
         assert "Language mismatch" in str(exc)
 

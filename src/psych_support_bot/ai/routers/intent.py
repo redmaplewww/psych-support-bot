@@ -151,35 +151,18 @@ def detect_mode(text: str) -> ConversationMode:
 
     if stripped in {"hello", "hi", "hey", "你好", "嗨"}:
         return "support"
-    if any(
-        _contains_keyword(normalized, compact, keyword) for keyword in REFUSAL_KEYWORDS
-    ):
+    if any(_contains_keyword(normalized, compact, keyword) for keyword in REFUSAL_KEYWORDS):
         return "support"
-    if any(
-        _contains_keyword(normalized, compact, keyword)
-        for keyword in DIAGNOSIS_KEYWORDS
-    ):
+    if any(_contains_keyword(normalized, compact, keyword) for keyword in DIAGNOSIS_KEYWORDS):
         return "support"
-    if any(
-        _contains_keyword(normalized, compact, keyword) for keyword in CRISIS_KEYWORDS
-    ):
+    if any(_contains_keyword(normalized, compact, keyword) for keyword in CRISIS_KEYWORDS):
         return "crisis"
-    if any(
-        _contains_keyword(normalized, compact, keyword)
-        for keyword in INTERVENTION_KEYWORDS
-    ):
+    if any(_contains_keyword(normalized, compact, keyword) for keyword in INTERVENTION_KEYWORDS):
         return "intervention"
-    if any(
-        _contains_keyword(normalized, compact, keyword) for keyword in PLANNING_KEYWORDS
-    ):
+    if any(_contains_keyword(normalized, compact, keyword) for keyword in PLANNING_KEYWORDS):
         return "planning"
-    if any(
-        _contains_keyword(normalized, compact, keyword)
-        for keyword in ASSESSMENT_KEYWORDS
-    ):
+    if any(_contains_keyword(normalized, compact, keyword) for keyword in ASSESSMENT_KEYWORDS):
         return "assessment"
-    if any(
-        _contains_keyword(normalized, compact, keyword) for keyword in HELP_KEYWORDS
-    ):
+    if any(_contains_keyword(normalized, compact, keyword) for keyword in HELP_KEYWORDS):
         return "support"
     return "support"
