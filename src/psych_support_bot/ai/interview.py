@@ -103,6 +103,61 @@ EXHAUSTION_KEYWORDS = [
     "burned out",
 ]
 
+# B4.3: Exhaustion subtypes for finer-grained interview strategy.
+# Physical exhaustion: sleep, body, energy depletion → focus on rest, sleep hygiene
+PHYSICAL_EXHAUSTION_KEYWORDS = [
+    "身体累",
+    "体力不支",
+    "没力气",
+    "睡不够",
+    "睡不好",
+    "没睡够",
+    "肌肉酸痛",
+    "头晕",
+    "身体吃不消",
+    "physically tired",
+    "physically exhausted",
+    "no energy",
+    "can't sleep",
+    "body aches",
+    "dizzy",
+]
+
+# Emotional exhaustion: mental, relational, emotional drain → focus on boundaries, emotional processing
+EMOTIONAL_EXHAUSTION_KEYWORDS = [
+    "心累",
+    "心力交瘁",
+    "精神疲惫",
+    "情绪耗竭",
+    "心慌",
+    "崩溃",
+    "压抑",
+    "喘不过气",
+    "绷着",
+    "内耗",
+    "心碎",
+    "emo",
+    "emotionally drained",
+    "emotionally exhausted",
+    "mentally exhausted",
+    "burnout",
+    "overwhelmed",
+    "emotionally depleted",
+]
+
+# Relational/social exhaustion: caused by interpersonal interactions
+RELATIONAL_EXHAUSTION_KEYWORDS = [
+    "社交疲劳",
+    "应付人",
+    "不想见人",
+    "人际关系累",
+    "社交耗竭",
+    "socially drained",
+    "socially exhausted",
+    "people fatigue",
+    "socially tired",
+]
+
 
 def _matches_any(normalized: str, compact: str, keywords: list[str]) -> bool:
     return any(_contains_keyword(normalized, compact, keyword) for keyword in keywords)
@@ -123,7 +178,16 @@ def determine_interview_process(
     has_absolutist = _matches_any(normalized, compact, ABSOLUTIST_KEYWORDS)
     has_minimization = _matches_any(normalized, compact, MINIMIZATION_KEYWORDS)
     has_relational_disclosure = _matches_any(normalized, compact, RELATIONAL_DISCLOSURE_KEYWORDS)
-    has_exhaustion = _matches_any(normalized, compact, EXHAUSTION_KEYWORDS)
+    has_exhaustion = (
+        _matches_any(normalized, compact, EXHAUSTION_KEYWORDS)
+        or _matches_any(normalized, compact, PHYSICAL_EXHAUSTION_KEYWORDS)
+        or _matches_any(normalized, compact, EMOTIONAL_EXHAUSTION_KEYWORDS)
+        or _matches_any(normalized, compact, RELATIONAL_EXHAUSTION_KEYWORDS)
+    )
+    # B4.3: Detect exhaustion subtypes
+    has_physical_exhaustion = _matches_any(normalized, compact, PHYSICAL_EXHAUSTION_KEYWORDS)
+    has_emotional_exhaustion = _matches_any(normalized, compact, EMOTIONAL_EXHAUSTION_KEYWORDS)
+    has_relational_exhaustion = _matches_any(normalized, compact, RELATIONAL_EXHAUSTION_KEYWORDS)
     has_pattern = has_strong_pattern or (
         has_weak_pattern and (has_contradiction or has_absolutist or has_relational_disclosure)
     )
@@ -194,7 +258,27 @@ def determine_interview_process(
         stage = "exploration"
         question_strategy = "open"
         challenge_allowed = False
-        loop_hint = "Clarify whether the exhaustion is physical, emotional, relational, or anticipatory before challenging the user's explanation."
+        # B4.3: Differentiate loop_hint by exhaustion subtype
+        if has_physical_exhaustion:
+            loop_hint = (
+                "Clarify whether the exhaustion is primarily physical (sleep, body, energy). "
+                "Explore sleep patterns, physical activity, and rest quality before "
+                "addressing emotional factors."
+            )
+        elif has_emotional_exhaustion:
+            loop_hint = (
+                "Clarify whether the exhaustion is primarily emotional (mental drain, overwhelm, numbness). "
+                "Explore emotional demands, boundaries, and stressors before "
+                "addressing physical factors."
+            )
+        elif has_relational_exhaustion:
+            loop_hint = (
+                "Clarify whether the exhaustion is primarily relational (social drain, interpersonal demands). "
+                "Explore specific relationships and social contexts that deplete energy before "
+                "addressing other factors."
+            )
+        else:
+            loop_hint = "Clarify whether the exhaustion is physical, emotional, relational, or anticipatory before challenging the user's explanation."
 
     if mode == "planning":
         stage = "planning"

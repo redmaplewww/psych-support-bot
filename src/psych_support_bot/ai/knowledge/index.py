@@ -138,7 +138,7 @@ TOPIC_KEYWORDS = {
         "逃避",
         "开始不了",
         "卡住了",
-        # focus/concentration keywords merged into procrastination (knowledge freeze)
+        # B1: focus/concentration keywords merged into procrastination (knowledge freeze)
         "走神",
         "分心",
         "无法集中",
@@ -149,6 +149,12 @@ TOPIC_KEYWORDS = {
         "can't focus",
         "不专注",
         "注意力散",
+        # B1: Move behavioral-execution focus keywords to procrastination
+        "注意力不集中",
+        "专注不了",
+        "看不进去",
+        "注意力涣散",
+        "无法专心",
     ],
     "rumination": [
         "ruminating",
@@ -216,12 +222,10 @@ TOPIC_KEYWORDS = {
         "提不起劲",
         "停摆",
         "冻结住了",
-        # focus/concentration keywords merged into motivation (knowledge freeze)
-        "注意力不集中",
-        "专注不了",
-        "看不进去",
-        "注意力涣散",
-        "无法专心",
+        # B1: Focus keywords that are motivation-related (internal drive)
+        "没干劲",
+        "不想做",
+        "缺乏动力",
         "can't concentrate",
         "can't pay attention",
         "mind wandering",

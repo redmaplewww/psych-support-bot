@@ -170,12 +170,97 @@ CHINESE_SUICIDE_DENIAL_PATTERNS = [
     "不想自杀",
 ]
 
+# B4.2: Negation proximity window.
+# A negation only counts if it appears within this many characters
+# of a high-risk keyword. This prevents false negatives where the
+# negation appears far from the risk word (e.g., "自杀...（500字）...我不想").
+NEGATION_WINDOW_CHARS = 20
+
+# Chinese negation words that, when appearing close to a high-risk keyword,
+# indicate the user is denying or distancing from the risk.
+CHINESE_NEGATION_WORDS = [
+    "不",
+    "没",
+    "没有",
+    "不再",
+    "不想",
+    "没想过",
+    "没有想",
+]
+
+# English negation words/phrases for proximity checking.
+ENGLISH_NEGATION_WORDS = [
+    "not",
+    "never",
+    "no longer",
+    "don't",
+    "dont",
+    "doesn't",
+    "without",
+    "no desire",
+]
+
+
+def _find_keyword_positions(text: str, keyword: str) -> list[int]:
+    """Find all starting positions of keyword in text (case-insensitive)."""
+    positions: list[int] = []
+    start = 0
+    lower_text = text.lower()
+    lower_kw = keyword.lower()
+    while True:
+        idx = lower_text.find(lower_kw, start)
+        if idx < 0:
+            break
+        positions.append(idx)
+        start = idx + len(lower_kw)
+    return positions
+
+
+def _has_negation_near_risk(text: str, risk_keywords: list[str]) -> bool:
+    """Check if any negation word appears within NEGATION_WINDOW_CHARS of a risk keyword.
+
+    This implements the window-distance detection: the negation must be
+    close to the risk word to be a valid denial.
+    """
+    lower_text = text.lower()
+
+    for kw in risk_keywords:
+        kw_lower = kw.lower()
+        kw_positions = _find_keyword_positions(lower_text, kw_lower)
+        if not kw_positions:
+            continue
+
+        for kw_pos in kw_positions:
+            # Check the window around this keyword occurrence
+            window_start = max(0, kw_pos - NEGATION_WINDOW_CHARS)
+            window_end = min(len(lower_text), kw_pos + len(kw_lower) + NEGATION_WINDOW_CHARS)
+            window = lower_text[window_start:window_end]
+
+            # Check if any negation word appears in this window
+            for neg in CHINESE_NEGATION_WORDS + ENGLISH_NEGATION_WORDS:
+                if neg.lower() in window:
+                    return True
+
+    return False
+
 
 def _has_negation(text: str) -> bool:
+    """Check for negation patterns.
+
+    B4.2: Enhanced with proximity window detection.
+    A negation is only valid if it appears close to a high-risk keyword.
+    Falls back to pattern matching for explicit denial phrases.
+    """
     normalized, compact = _normalize_text(text)
-    return _match_any(normalized, compact, NEGATION_PATTERNS) or _match_any(
+
+    # Check explicit denial patterns first (these are self-contained phrases)
+    if _match_any(normalized, compact, NEGATION_PATTERNS) or _match_any(
         normalized, compact, CHINESE_SUICIDE_DENIAL_PATTERNS
-    )
+    ):
+        return True
+
+    # B4.2: Check negation proximity to high-risk keywords
+    return _has_negation_near_risk(normalized, HIGH_RISK_KEYWORDS)
 
 
 IMMINENT_MEANS_PATTERNS = [

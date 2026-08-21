@@ -117,8 +117,17 @@ def build_boundary_prompt(risk_level: str) -> str:
 
 
 def build_context_prompt(memory_summary: str, knowledge_context: str) -> str:
+    # B5: When no knowledge entry matches, provide a structured fallback framework
+    # so the LLM still gives a principled, non-generic response.
     context = knowledge_context or (
-        "Draw on your knowledge of CBT, ACT, DBT, and MI principles. Focus on one concrete, non-diagnostic next step."
+        "No specific knowledge entry matched. Use this structured framework: "
+        "1) Reflective listening: mirror the user's core concern in their own words. "
+        "2) Normalize: briefly validate that the experience is common and understandable. "
+        "3) One micro-skill: draw on CBT (cognitive reframing), ACT (defusion/acceptance), "
+        "DBT (distress tolerance), or MI (motivational reflection) to offer one concrete, "
+        "non-diagnostic coping step. "
+        "4) Safety check: if distress indicators are present, gently assess risk. "
+        "Keep the response focused, empathetic, and grounded in evidence-based principles."
     )
     return f"Known user memory summary: {memory_summary or 'No prior memory.'} Relevant practice context: {context}"
 
