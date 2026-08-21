@@ -112,9 +112,6 @@ class ConversationService:
 
         active_session = get_active_questionnaire_session(session, payload.user_id)
         if active_session is not None:
-            user_mode = detect_mode(payload.message)
-            if user_mode != "assessment":
-                return None
             assessment_type = cast(Any, active_session.assessment_type)
             answer_value = parse_questionnaire_answer(payload.message, assessment_type)
             answers = cast(list[int], json.loads(active_session.answers_json or "[]"))
@@ -177,6 +174,9 @@ class ConversationService:
                             "assessment_type": assessment_type,
                         },
                     )
+                user_mode = detect_mode(payload.message)
+                if user_mode != "assessment":
+                    return None
                 is_chinese = any("\u4e00" <= c <= "\u9fff" for c in payload.message)
                 max_hint = 4 if assessment_type == "isi" else 3
                 if is_chinese:

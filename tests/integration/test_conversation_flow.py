@@ -247,3 +247,69 @@ def test_help_message_during_assessment_does_not_continue_questionnaire() -> Non
         assert "Please reply with a number" not in text
         # 也不能推进到下一题（source 不是 questionnaire_progress）
         assert help_resp.debug.get("source") != "questionnaire_progress"
+
+
+def test_numeric_answer_during_assessment_proceeds_normally() -> None:
+    """回归测试：评估期间发送数字答案不应被 detect_mode 拦截。
+
+    旧实现将 detect_mode 检查放在 parse_questionnaire_answer 之前，
+    导致 detect_mode("2") 返回 "support"（纯数字无关键词匹配），
+    进而 return None 中断评估流程。此测试确保数字答案正常推进量表。
+    """
+    user_id = f"numeric-answer-{uuid4()}"
+    with SessionLocal() as session:
+        start = conversation_service.respond(
+            ConversationRequest(user_id=user_id, message="我想做 PHQ-9"),
+            session=session,
+        )
+        assert start.mode == "assessment"
+        assert start.debug["source"] == "assessment_start"
+
+        # 发送数字答案 "2"（PHQ-9 有效范围 0-3）
+        step1 = conversation_service.respond(
+            ConversationRequest(user_id=user_id, message="2"),
+            session=session,
+        )
+
+    # 数字答案应被正常接受，不应回落到对话图
+    assert step1 is not None
+    assert step1.debug["source"] == "questionnaire_progress"
+    assert step1.mode == "assessment"
+    assert "请回复一个数字" not in step1.reply.text
+    assert "Please reply with a number" not in step1.reply.text
+
+
+def test_numeric_zero_answer_during_assessment_proceeds_normally() -> None:
+    """回归测试：评估期间发送 "0"（最低分）也应正常推进。"""
+    user_id = f"numeric-zero-{uuid4()}"
+    with SessionLocal() as session:
+        conversation_service.respond(
+            ConversationRequest(user_id=user_id, message="PHQ-9"),
+            session=session,
+        )
+        step1 = conversation_service.respond(
+            ConversationRequest(user_id=user_id, message="0"),
+            session=session,
+        )
+
+    assert step1 is not None
+    assert step1.debug["source"] == "questionnaire_progress"
+    assert step1.mode == "assessment"
+
+
+def test_verbal_option_answer_during_assessment_proceeds_normally() -> None:
+    """回归测试：评估期间发送文字选项（如"没有"）也应正常推进。"""
+    user_id = f"verbal-option-{uuid4()}"
+    with SessionLocal() as session:
+        conversation_service.respond(
+            ConversationRequest(user_id=user_id, message="GAD-7"),
+            session=session,
+        )
+        step1 = conversation_service.respond(
+            ConversationRequest(user_id=user_id, message="没有"),
+            session=session,
+        )
+
+    assert step1 is not None
+    assert step1.debug["source"] == "questionnaire_progress"
+    assert step1.mode == "assessment"
