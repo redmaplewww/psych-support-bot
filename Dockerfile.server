@@ -15,12 +15,14 @@ RUN if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
 # 使用阿里云 PyPI 镜像加速 pip/uv
 ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
 ENV PIP_TRUSTED_HOST=mirrors.aliyun.com
-ENV UV_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+ENV UV_PYPI_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+ENV UV_DEFAULT_INDEX=https://mirrors.aliyun.com/pypi/simple/
 
 RUN pip install --no-cache-dir uv
 
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
+# 使用阿里云镜像源安装依赖（不用 --frozen，让 uv 走镜像源解析）
+RUN uv sync --no-dev --no-install-project
 
 COPY src/ src/
 COPY data/ data/
