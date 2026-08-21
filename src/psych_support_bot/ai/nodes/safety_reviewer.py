@@ -102,6 +102,40 @@ OVERREACH_PATTERNS: list[str] = [
     r"我(给你|为你)(开|推荐|建议).{0,10}(药|药物)",
 ]
 
+# Challenge/questioning patterns: LLM outputs that push the user with
+# confrontational or probing questions. These are inappropriate when
+# challenge_allowed is False (e.g. engagement, exploration, safety_stabilization).
+CHALLENGE_PATTERNS: list[str] = [
+    # English - confrontational questions
+    r"are you sure",
+    r"do you really think",
+    r"why (don't|do) you",
+    r"why (not|would|should) you",
+    r"have you considered",
+    r"have you thought about",
+    r"what makes you think",
+    r"but (don't|doesn't) you",
+    r"isn't it true that",
+    # English - directive/probing
+    r"you (should|need to|must) (ask yourself|think about|consider)",
+    r"let me (push back|challenge|question)",
+    # Chinese - confrontational questions
+    r"你确定",
+    r"你真的(认为|觉得|想)",
+    r"你为什么不",
+    r"你为什么",
+    r"你有没有(想过|考虑过)",
+    r"是什么让你(觉得|认为)",
+    r"你有没有想过",
+    r"你不觉得",
+    r"难道不是",
+    # Chinese - directive/probing
+    r"你(应该|需要|必须)(问问自己|想想|考虑一下)",
+    r"让我(质询|挑战|反问|质疑)一下",
+]
+
+_CHALLENGE_REGEX = [re.compile(p, re.IGNORECASE) for p in CHALLENGE_PATTERNS]
+
 _DIAGNOSIS_REGEX = [re.compile(p, re.IGNORECASE) for p in DIAGNOSIS_PATTERNS]
 _OVERREACH_REGEX = [re.compile(p, re.IGNORECASE) for p in OVERREACH_PATTERNS]
 
@@ -162,17 +196,67 @@ def _fallback_text(user_message: str) -> str:
     return "I am here with you. Let us slow this down and focus on one small next step together."
 
 
+def _detect_challenge(text: str) -> bool:
+    """Check if the reply contains confrontational or probing language."""
+    return any(p.search(text) for p in _CHALLENGE_REGEX)
+
+
+def _sanitize_challenge(text: str) -> tuple[str, bool]:
+    """Remove challenge/confrontation sentences from the reply.
+
+    Returns (sanitized_text, was_modified).
+    Removes sentences containing challenge patterns and keeps the rest.
+    """
+    was_modified = False
+    lines = text.split("\n")
+    kept_lines: list[str] = []
+
+    for line in lines:
+        line_stripped = line.strip()
+        if not line_stripped:
+            kept_lines.append(line)
+            continue
+
+        is_violating = False
+        for pattern in _CHALLENGE_REGEX:
+            if pattern.search(line):
+                is_violating = True
+                logger.warning(
+                    "Safety reviewer: removing challenge sentence (challenge_allowed=False): %s",
+                    line_stripped[:100],
+                )
+                break
+
+        if is_violating:
+            was_modified = True
+            kept_lines.append("")
+        else:
+            kept_lines.append(line)
+
+    sanitized = "\n".join(kept_lines).strip()
+    if not sanitized:
+        return "", True
+    return sanitized, was_modified
+
+
 def review_response(state: GraphState) -> GraphState:
     text = state["generated_reply"].text
 
     # 1. Prompt leak detection (existing logic)
     has_leak = any(marker in text for marker in LEAK_MARKERS)
 
-    # 2. Diagnosis language detection (new)
+    # 2. Diagnosis language detection (existing P0-3 logic)
     has_diagnosis = any(p.search(text) for p in _DIAGNOSIS_REGEX)
 
-    # 3. Overreach/promise detection (new)
+    # 3. Overreach/promise detection (existing P0-3 logic)
     has_overreach = any(p.search(text) for p in _OVERREACH_REGEX)
+
+    # 4. B2.3: Challenge review — when challenge_allowed is False, detect
+    #    and remove confrontational/probing language.
+    challenge_allowed = state.get("challenge_allowed", False)
+    has_challenge = False
+    if not challenge_allowed:
+        has_challenge = _detect_challenge(text)
 
     if has_leak:
         # Prompt leak: full replacement (safety critical)
@@ -180,6 +264,10 @@ def review_response(state: GraphState) -> GraphState:
     elif has_diagnosis or has_overreach:
         # Diagnosis/overreach: truncate violating sentences, keep the rest
         sanitized, was_modified = _sanitize_text(text)
+        text = sanitized if (was_modified and sanitized) else _fallback_text(state["user_message"])
+    elif has_challenge:
+        # Challenge in non-challenge-allowed context: remove challenge sentences
+        sanitized, was_modified = _sanitize_challenge(text)
         text = sanitized if (was_modified and sanitized) else _fallback_text(state["user_message"])
 
     state["generated_reply"].text = text
