@@ -682,6 +682,241 @@
       font-style: italic;
     }
 
+    .ex-guided-step {
+      border: 1px solid var(--rule);
+      padding: 16px;
+      background: #fff;
+      margin: 14px 0;
+    }
+
+    .ex-step-label {
+      display: inline-block;
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+      letter-spacing: 1px;
+      padding: 2px 8px;
+      border: 1px solid var(--ink);
+      margin-bottom: 10px;
+    }
+
+    .ex-step-guide {
+      font-size: 14px;
+      line-height: 1.7;
+      margin-bottom: 12px;
+    }
+
+    .ex-step-guide strong {
+      display: block;
+      font-size: 15px;
+      margin-bottom: 6px;
+    }
+
+    .ex-response-field {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--rule);
+      font-family: inherit;
+      font-size: 13px;
+      background: #fafafa;
+      color: var(--ink);
+      min-height: 90px;
+      resize: vertical;
+      outline: none;
+    }
+
+    .ex-response-field:focus {
+      background: #fff;
+      border-color: var(--ink);
+    }
+
+    .ex-meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--muted);
+      font-family: "Courier New", monospace;
+    }
+
+    .ex-reflection {
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-left: 3px solid var(--ink);
+      background: #fafafa;
+      font-size: 13px;
+      line-height: 1.6;
+      font-style: italic;
+    }
+
+    .ex-history-list {
+      margin-top: 14px;
+      padding: 12px;
+      border: 1px solid var(--soft);
+      background: #fafafa;
+    }
+
+    .ex-history-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ex-history-title .count {
+      font-family: "Courier New", monospace;
+      font-weight: 400;
+      padding: 1px 6px;
+      border: 1px solid var(--rule);
+    }
+
+    .ex-history-item {
+      border-top: 1px solid var(--soft);
+      padding: 8px 0;
+      font-size: 12px;
+    }
+
+    .ex-history-item .hi-step {
+      font-family: "Courier New", monospace;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .ex-history-item .hi-resp {
+      font-style: italic;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .ex-summary-card {
+      border: 2px solid var(--ink);
+      padding: 20px;
+      background: #fff;
+      margin-top: 18px;
+    }
+
+    .ex-summary-card .sc-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .ex-summary-card .sc-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .ex-summary-item {
+      padding: 10px 0;
+      border-top: 1px solid var(--soft);
+    }
+
+    .ex-summary-item .si-label {
+      font-size: 11px;
+      font-family: "Courier New", monospace;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      color: var(--muted);
+    }
+
+    .ex-summary-item .si-guide {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .ex-summary-item .si-resp {
+      font-size: 13px;
+      line-height: 1.6;
+      padding: 8px 12px;
+      background: #fafafa;
+      border-left: 3px solid var(--ink);
+    }
+
+    .ex-summary-item .si-resp.empty {
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .ex-empty-note {
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+      padding: 20px 0;
+      font-style: italic;
+    }
+
+    .ex-warm-card {
+      border: 2px solid var(--ink);
+      padding: 22px 24px;
+      background: #fff;
+      margin-top: 18px;
+      line-height: 1.8;
+    }
+
+    .ex-warm-card .wc-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .ex-warm-card .wc-icon {
+      font-size: 22px;
+    }
+
+    .ex-warm-card .wc-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .ex-warm-card .wc-body {
+      font-size: 14px;
+      color: var(--ink);
+    }
+
+    .ex-warm-card .wc-body p {
+      margin: 0 0 10px 0;
+    }
+
+    .ex-warm-card .wc-body .wc-highlight {
+      font-weight: 700;
+      border-bottom: 1px solid var(--ink);
+    }
+
+    .ex-warm-card .wc-body .wc-pause {
+      text-align: center;
+      font-size: 18px;
+      letter-spacing: 12px;
+      margin: 14px 0;
+      opacity: 0.6;
+    }
+
+    .ex-warm-card .wc-body .wc-reflect {
+      padding: 12px 14px;
+      background: #fafafa;
+      border-left: 3px solid var(--ink);
+      font-size: 13px;
+      margin: 12px 0;
+    }
+
+    .ex-warm-card .wc-body .wc-reflect-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+      color: var(--muted);
+    }
+
     .back-row {
       margin-bottom: 12px;
     }
@@ -1345,7 +1580,7 @@
     <!-- ========== EXERCISES PANEL (C1) ========== -->
     <section class="panel" id="panel-exercises">
       <h2 class="section-title">练习工具面板</h2>
-      <p class="section-subtitle">选择一个练习，按步骤进行。完成后可返回列表尝试其他练习。</p>
+      <p class="section-subtitle">选择一个练习，每一步写下你的真实想法，完成后查看完整的练习记录。</p>
 
       <div id="exList">
         <div class="exercise-grid" id="exerciseGrid"></div>
@@ -1464,6 +1699,57 @@
       { key: 'dbt_tipp', tag: 'dbt_tipp', label: 'DBT TIPP 技能', cat: 'DBT', desc: '高强度情绪下快速生理平复的四项技能。' },
       { key: 'panic_grounding_5_4_3_2_1', tag: 'panic_grounding_5_4_3_2_1', label: '5-4-3-2-1 接地', cat: 'PANIC', desc: '通过感官锚定当下，适用于惊恐或解离时刻。' },
     ];
+
+    const EXERCISE_MOCK = {
+      cbt_thought_record: {
+        name: 'CBT Thought Record',
+        description: '识别并重新框视自动化负性想法。',
+        steps: [
+          'Step 1: 情境。简要描述发生了什么事。',
+          'Step 2: 情绪。命名情绪并评估强度（0-100）。',
+          'Step 3: 自动化想法。那一刻你脑中闪过什么？',
+          'Step 4: 认知歪曲。这是读心术、灾难化、非黑即白、还是预言？',
+          'Step 5: 平衡想法。有没有另一种看待方式？',
+          'Step 6: 修订后情绪。现在情绪强度如何（0-100）？',
+        ],
+        output_format: '逐步引导，每步请求用户回答后再进入下一步。'
+      },
+      act_defusion: {
+        name: 'ACT 认知解离',
+        description: '从痛苦想法中后退一步，减少与想法的融合。',
+        steps: [
+          'Step 1: 注意这个想法。什么想法在困扰你？',
+          'Step 2: 添加前缀。试着说：「我正在有一个想法——…」',
+          'Step 3: 唱出来。用熟悉的曲调默默唱出这个想法。',
+          'Step 4: 感谢你的大脑。说「谢谢你，大脑」，然后温柔地把注意力带回来。',
+          'Step 5: 问问自己：这个想法现在对我有帮助吗？按它行动与我的价值观一致吗？',
+        ],
+        output_format: '逐步引导。用户尝试每一步后，简要反映你注意到的。'
+      },
+      dbt_tipp: {
+        name: 'DBT TIPP 技能',
+        description: '高强度情绪下快速生理平复的四项技能。',
+        steps: [
+          'T: 温度。将冷的物体敷在脸上 10-30 秒。',
+          'I: 剧烈运动。做 10-20 个开合跳或原地跑。',
+          'P: 节奏呼吸。吸气 4 秒，呼气 8 秒。重复 5 次。',
+          'P: 渐进式肌肉放松。每组肌肉绷紧然后放松 5 秒。',
+        ],
+        output_format: '清晰简短地陈述每个技能步骤。确认用户尝试后再继续。'
+      },
+      panic_grounding_5_4_3_2_1: {
+        name: '5-4-3-2-1 接地',
+        description: '通过感官锚定当下，适用于惊恐或解离时刻。',
+        steps: [
+          '说出你现在周围能看到的 5 样东西。',
+          '说出你现在身体能触摸到的 4 样东西。',
+          '说出你现在能听到的 3 种声音。',
+          '说出你现在能闻到的 2 种气味。',
+          '说出你现在能尝到的 1 种味道。',
+        ],
+        output_format: '清晰提示每一步，等待用户回答后再继续。'
+      }
+    };
 
     init();
 
@@ -1767,63 +2053,281 @@
         const res = await fetch(API_BASE + '/v1/exercises/' + tag);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
-        curExercise = { key, tag, data, currentStep: 0, done: new Set() };
+        curExercise = { key, tag, data, currentStep: 0, done: new Set(), responses: [] };
         paintExercise();
       } catch (err) {
-        box.innerHTML = '<div class="empty-tip">加载失败：' + escapeHtml(err.message) +
-          '<br><br>请确认后端服务运行中。<br>' +
-          '<button class="btn btn-secondary" style="margin-top:12px;" onclick="showExerciseList()">返回列表</button></div>';
+        const mockData = EXERCISE_MOCK[tag];
+        if (mockData) {
+          curExercise = { key, tag, data: mockData, currentStep: 0, done: new Set(), responses: [], mock: true };
+          paintExercise();
+        } else {
+          box.innerHTML = '<div class="empty-tip">加载失败：' + escapeHtml(err.message) +
+            '<br><br>请确认后端服务运行中。<br>' +
+            '<button class="btn btn-secondary" style="margin-top:12px;" onclick="showExerciseList()">返回列表</button></div>';
+        }
       }
     }
     function paintExercise() {
       const d = curExercise.data;
       const steps = d.steps || [];
       const idx = curExercise.currentStep;
-      const isDone = curExercise.done.size >= steps.length;
-      let stepsHtml = '';
-      steps.forEach((s, i) => {
-        const state = curExercise.done.has(i) ? 'done' : (i === idx && !isDone ? 'active' : '');
-        stepsHtml += '<div class="step-row ' + state + '">' +
-          '<div class="step-num">' + (i + 1) + '</div>' +
-          '<div class="step-body"><span class="s-label">' + escapeHtml(s) + '</span></div>' +
-          '</div>';
-      });
-      let cta = '';
-      if (isDone) {
-        cta = '<div class="completion-banner">' +
-          '<div class="tick">✓</div>' +
-          '<div class="c-title">练习已完成</div>' +
-          '<div class="c-sub">按步骤完成。若需要可以再次从头开始。</div>' +
-          '</div>' +
-          '<div class="ev-actions" style="margin-top:14px;">' +
-          '<button class="btn btn-secondary" onclick="restartExercise()">重新开始</button>' +
-          '<button class="btn" onclick="showExerciseList()">返回列表</button>' +
-          '</div>';
-        // save completion
-        const doneMap = JSON.parse(localStorage.getItem(STORE_KEYS.EX_DONE) || '{}');
-        doneMap[curExercise.key] = new Date().toISOString();
-        localStorage.setItem(STORE_KEYS.EX_DONE, JSON.stringify(doneMap));
-        // save history
-        const h = JSON.parse(localStorage.getItem(STORE_KEYS.EX_HIST) || '[]');
-        h.unshift({ key: curExercise.key, name: d.name, at: new Date().toISOString() });
-        localStorage.setItem(STORE_KEYS.EX_HIST, JSON.stringify(h.slice(0, 30)));
-      } else {
-        cta = '<div class="ev-actions">' +
-          '<button class="btn btn-secondary" onclick="prevStep()">上一步</button>' +
-          '<button class="btn" onclick="markStepDone()">完成第 ' + (idx + 1) + ' 步，进入下一步</button>' +
+      const responses = curExercise.responses || [];
+      const completedCount = curExercise.done.size;
+      const isComplete = completedCount >= steps.length;
+
+      let summaryBar = '';
+      if (completedCount > 0) {
+        summaryBar = '<div style="margin-bottom:12px;font-size:12px;font-family:Courier New,monospace;color:var(--muted);">' +
+          '进度：' + completedCount + ' / ' + steps.length + ' 步已完成</div>';
+      }
+
+      let historyHtml = '';
+      if (responses.length > 0) {
+        historyHtml = '<div class="ex-history-list">' +
+          '<div class="ex-history-title">之前的回答 <span class="count">' + responses.length + '</span></div>' +
+          responses.map((r, i) => '<div class="ex-history-item">' +
+            '<div class="hi-step">第 ' + (i + 1) + ' 步</div>' +
+            '<div class="hi-resp">' + escapeHtml(r || '(未填写)') + '</div>' +
+            '</div>').join('') +
           '</div>';
       }
+
+      let currentStepHtml = '';
+      if (!isComplete && idx < steps.length) {
+        const guideText = escapeHtml(steps[idx] || '');
+        const stepNum = idx + 1;
+        const totalSteps = steps.length;
+        const prevResp = responses[idx] || '';
+        currentStepHtml =
+          '<div class="ex-guided-step">' +
+          '<span class="ex-step-label">STEP ' + stepNum + ' / ' + totalSteps + '</span>' +
+          '<div class="ex-step-guide"><strong>' + guideText.split('.')[0] + '</strong>' +
+          (guideText.includes('.') ? guideText.substring(guideText.indexOf('.') + 1) : guideText) + '</div>' +
+          '<textarea class="ex-response-field" id="exRespField" placeholder="在这里写下你的想法或体验..." oninput="updateExResp(this.value)">' + escapeHtml(prevResp) + '</textarea>' +
+          '<div class="ex-meta-row">' +
+          '<span>你的回答仅保存在本设备</span>' +
+          '<span>' + (prevResp.length) + ' 字</span>' +
+          '</div>' +
+          '</div>';
+      }
+
+      let cta = '';
+      if (isComplete) {
+        cta = renderExerciseSummary(d, steps, responses);
+      } else {
+        cta = '<div class="ev-actions">' +
+          (idx > 0 ? '<button class="btn btn-secondary" onclick="prevStep()">← 上一步</button>' : '') +
+          '<button class="btn" onclick="saveAndAdvance()">保存此步，进入下一步 →</button>' +
+          '</div>';
+      }
+
       document.getElementById('exerciseViewer').innerHTML =
         '<div class="ev-title">' + escapeHtml(d.name || curExercise.key) + '</div>' +
         '<div class="ev-desc">' + escapeHtml(d.description || '') + '</div>' +
-        '<div class="step-list">' + stepsHtml + '</div>' + cta;
+        summaryBar +
+        historyHtml +
+        currentStepHtml +
+        cta;
+
+      if (!isComplete && idx < steps.length) {
+        const f = document.getElementById('exRespField');
+        if (f) f.focus();
+      }
     }
-    function markStepDone() {
+    function generateWarmSummary(exerciseKey, d, steps, responses) {
+      const r = responses;
+      const filledCount = responses.filter(x => (x || '').trim().length > 0).length;
+      const emptyCount = steps.length - filledCount;
+
+      const key = exerciseKey;
+      let warmHtml = '';
+
+      // ---- CBT Thought Record ----
+      if (key === 'cbt_thought_record') {
+        const situation = r[0] || '';
+        const emotion = r[1] || '';
+        const thought = r[2] || '';
+        const distortion = r[3] || '';
+        const balanced = r[4] || '';
+        const revised = r[5] || '';
+
+        warmHtml = '<div class="ex-warm-card">' +
+          '<div class="wc-header"><span class="wc-icon">🌱</span><span class="wc-title">温柔总结 · 想法记录</span></div>' +
+          '<div class="wc-body">';
+
+        warmHtml += '<p>你愿意停下来，认真地观察自己的想法，本身就是一件很勇敢的事。</p>';
+
+        if (emotion) {
+          warmHtml += '<p>你记录下了<span class="wc-highlight">「' + escapeHtml(emotion.substring(0, 30)) + '」</span>——这些感受是真实的，也是重要的。</p>';
+        }
+
+        if (thought) {
+          warmHtml += '<p>那个在你脑中回响的<span class="wc-highlight">「' + escapeHtml(thought.substring(0, 30)) + '」</span>，它出现了，但它并不等于事实本身。</p>';
+        }
+
+        if (distortion) {
+          warmHtml += '<div class="wc-reflect">' +
+            '<div class="wc-reflect-title">你注意到的认知模式</div>' +
+            escapeHtml(distortion) +
+            '</div>';
+        }
+
+        if (balanced) {
+          warmHtml += '<p>你试着用新的方式看待这件事——<span class="wc-highlight">「' + escapeHtml(balanced.substring(0, 30)) + '」</span>。这不是否定原来的感受，而是给了自己一个更多的可能性。</p>';
+        }
+
+        warmHtml += '<p>想法会来，也会走。你已经学会了在它们之间留出一点距离。</p>';
+        warmHtml += '</div></div>';
+      }
+
+      // ---- ACT Cognitive Defusion ----
+      else if (key === 'act_defusion') {
+        warmHtml = '<div class="ex-warm-card">' +
+          '<div class="wc-header"><span class="wc-icon">🌸</span><span class="wc-title">温柔总结 · 认知解离</span></div>' +
+          '<div class="wc-body">';
+
+        warmHtml += '<p>你和你的想法，不是同一个东西。这是 ACT 最温柔的道理。</p>';
+
+        if (r[0]) {
+          warmHtml += '<p>那个困扰你的想法——<span class="wc-highlight">「' + escapeHtml(r[0].substring(0, 30)) + '」</span>——你试着给它加上了前缀，试着唱出来，试着感谢它。</p>';
+        }
+
+        warmHtml += '<p>当你说「谢谢你，大脑」的时候，你其实是在对自己说：<br>「我听到你了，但我不必被你支配。」</p>';
+
+        if (r[4]) {
+          warmHtml += '<p>关于「这个想法现在对我有帮助吗」，你给出了自己的答案。这就是回到当下、回到价值观的开始。</p>';
+        }
+
+        warmHtml += '<p>你已经在练习成为想法的观察者，而不是想法的俘虏。这很棒。</p>';
+        warmHtml += '</div></div>';
+      }
+
+      // ---- DBT TIPP Skills ----
+      else if (key === 'dbt_tipp') {
+        warmHtml = '<div class="ex-warm-card">' +
+          '<div class="wc-header"><span class="wc-icon">🌊</span><span class="wc-title">温柔总结 · TIPP 技能</span></div>' +
+          '<div class="wc-body">';
+
+        warmHtml += '<p>当情绪像潮水一样涌上来时，你选择了先用身体安顿下来。这是非常智慧的做法。</p>';
+
+        warmHtml += '<p><strong>T</strong>（温度）——用冷水或冷空气告诉身体：「慢一点。」<br>' +
+          '<strong>I</strong>（剧烈运动）——让能量有处可去。<br>' +
+          '<strong>P</strong>（节奏呼吸）——吸气 4 秒，呼气 8 秒，和自己的身体握手言和。<br>' +
+          '<strong>P</strong>（渐进式放松）——一寸一寸地告诉每一块肌肉：「你可以休息了。」</p>';
+
+        if (filledCount >= 3) {
+          warmHtml += '<p>你认真地完成了这些步骤。在最汹涌的时候照顾自己，这本身就是一种勇气。</p>';
+        } else {
+          warmHtml += '<p>不必全部做到，能做其中任何一步就已经很好了。下一次情绪上来时，可以先从你觉得最容易的那一步开始。</p>';
+        }
+
+        warmHtml += '</div></div>';
+      }
+
+      // ---- 5-4-3-2-1 Grounding ----
+      else if (key === 'panic_grounding_5_4_3_2_1') {
+        warmHtml = '<div class="ex-warm-card">' +
+          '<div class="wc-header"><span class="wc-icon">🌿</span><span class="wc-title">温柔总结 · 5-4-3-2-1 接地</span></div>' +
+          '<div class="wc-body">';
+
+        warmHtml += '<p>你从思绪的风暴中，一步一步回到了此时此刻。</p>';
+
+        if (r[0] || r[1] || r[2] || r[3] || r[4]) {
+          warmHtml += '<div class="wc-reflect"><div class="wc-reflect-title">你锚定的当下</div>';
+          const anchors = [];
+          if (r[0]) anchors.push('👀 ' + escapeHtml(r[0].substring(0, 25)));
+          if (r[1]) anchors.push('✋ ' + escapeHtml(r[1].substring(0, 25)));
+          if (r[2]) anchors.push('👂 ' + escapeHtml(r[2].substring(0, 25)));
+          if (r[3]) anchors.push('👃 ' + escapeHtml(r[3].substring(0, 25)));
+          if (r[4]) anchors.push('👅 ' + escapeHtml(r[4].substring(0, 25)));
+          warmHtml += anchors.join('<br>');
+          warmHtml += '</div>';
+        }
+
+        warmHtml += '<p>也许刚才的你感到有些漂浮、有些遥远，但现在——<br>' +
+          '你有 5 样可以看见的东西，<br>' +
+          '4 样可以触摸的东西，<br>' +
+          '3 种可以听见的声音，<br>' +
+          '2 种可以闻到的气味，<br>' +
+          '1 种可以尝到的味道。</p>';
+
+        warmHtml += '<p>你一直都在这里。你是安全的。</p>';
+        warmHtml += '</div></div>';
+      }
+
+      // ---- Generic fallback ----
+      else {
+        warmHtml = '<div class="ex-warm-card">' +
+          '<div class="wc-header"><span class="wc-icon">☀️</span><span class="wc-title">温柔总结</span></div>' +
+          '<div class="wc-body">';
+        warmHtml += '<p>你完成了今天的练习，这本身就值得被好好对待。</p>';
+        if (filledCount > 0) {
+          warmHtml += '<p>你在这 ' + filledCount + ' 步中，诚实地面对了自己的感受。愿意看见，就是疗愈的开始。</p>';
+        }
+        warmHtml += '<p>没有标准答案，只有你的真实。今天的你已经做得很好了。</p>';
+        warmHtml += '</div></div>';
+      }
+
+      return warmHtml;
+    }
+    function renderExerciseSummary(d, steps, responses) {
+      const items = steps.map((step, i) => {
+        const resp = responses[i] || '';
+        return '<div class="ex-summary-item">' +
+          '<div class="si-label">STEP ' + (i + 1) + '</div>' +
+          '<div class="si-guide">' + escapeHtml(step) + '</div>' +
+          '<div class="si-resp' + (resp ? '' : ' empty') + '">' + escapeHtml(resp || '(未填写)') + '</div>' +
+          '</div>';
+      }).join('');
+
+      const savedToCloud = curExercise.saved_to_cloud;
+      const doneMap = JSON.parse(localStorage.getItem(STORE_KEYS.EX_DONE) || '{}');
+      doneMap[curExercise.key] = new Date().toISOString();
+      localStorage.setItem(STORE_KEYS.EX_DONE, JSON.stringify(doneMap));
+      const h = JSON.parse(localStorage.getItem(STORE_KEYS.EX_HIST) || '[]');
+      h.unshift({ key: curExercise.key, name: d.name, at: new Date().toISOString() });
+      localStorage.setItem(STORE_KEYS.EX_HIST, JSON.stringify(h.slice(0, 30)));
+
+      const warmCard = generateWarmSummary(curExercise.key, d, steps, responses);
+
+      return warmCard +
+        '<div class="completion-banner">' +
+        '<div class="tick">✓</div>' +
+        '<div class="c-title">练习完成</div>' +
+        '<div class="c-sub">你已完成所有步骤。以下是本次练习的完整记录。</div>' +
+        '</div>' +
+        '<div class="ex-summary-card">' +
+        '<div class="sc-title">' + escapeHtml(d.name || curExercise.key) + ' · 总结</div>' +
+        '<div class="sc-sub">完成时间：' + new Date().toLocaleString() + ' · 共 ' + steps.length + ' 步</div>' +
+        items +
+        '</div>' +
+        '<div class="ev-actions" style="margin-top:14px;">' +
+        '<button class="btn btn-secondary" onclick="restartExercise()">再来一次</button>' +
+        '<button class="btn" onclick="showExerciseList()">返回练习列表</button>' +
+        '</div>';
+    }
+    function updateExResp(val) {
+      if (!curExercise) return;
+      if (!curExercise.responses) curExercise.responses = [];
+      curExercise.responses[curExercise.currentStep] = val;
+    }
+    function saveAndAdvance() {
       if (!curExercise) return;
       const steps = curExercise.data.steps || [];
-      curExercise.done.add(curExercise.currentStep);
-      if (curExercise.currentStep < steps.length - 1) curExercise.currentStep++;
-      paintExercise();
+      const idx = curExercise.currentStep;
+      const resp = (document.getElementById('exRespField')?.value || '').trim();
+      if (!curExercise.responses) curExercise.responses = [];
+      curExercise.responses[idx] = resp;
+      curExercise.done.add(idx);
+      if (idx < steps.length - 1) {
+        curExercise.currentStep++;
+        paintExercise();
+      } else {
+        paintExercise();
+      }
+    }
+    function markStepDone() {
+      saveAndAdvance();
     }
     function prevStep() {
       if (!curExercise || curExercise.currentStep <= 0) return;
@@ -1834,6 +2338,7 @@
       if (!curExercise) return;
       curExercise.currentStep = 0;
       curExercise.done = new Set();
+      curExercise.responses = [];
       paintExercise();
     }
 
