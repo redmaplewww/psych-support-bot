@@ -6,6 +6,10 @@ from psych_support_bot.ai.consultation import (
 )
 from psych_support_bot.ai.interview import determine_interview_process
 from psych_support_bot.ai.schemas.state import GraphState
+from psych_support_bot.ai.utils.text_matching import (
+    _contains_keyword,
+    _normalize_text,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +23,6 @@ NEGATIVE_STATE_KEYWORDS = [
     "害怕",
     "恐惧",
     "担心",
-    "害怕",
     "抑郁",
     "低落",
     "沮丧",
@@ -84,28 +87,71 @@ POSITIVE_STATE_KEYWORDS = [
     "over it",
 ]
 
-
+# Negation prefixes: when a negative-state keyword is preceded by one of these
+# within a small window, the keyword is considered negated (i.e. the user is
+# expressing the *absence* of the negative state, which is a positive signal).
 _NEGATION_PREFIXES = ("不", "没", "不再", "no longer", "not ", "never", "without")
+_NEGATION_WINDOW = 6
+
+
+def _keyword_positions(text: str, keyword: str) -> list[int]:
+    """Find all positions of keyword in text (case-insensitive substring search)."""
+    positions: list[int] = []
+    lower_text = text.lower()
+    lower_kw = keyword.lower()
+    start = 0
+    while True:
+        idx = lower_text.find(lower_kw, start)
+        if idx < 0:
+            break
+        positions.append(idx)
+        start = idx + len(lower_kw)
+    return positions
+
+
+def _is_negated(text: str, keyword: str, positions: list[int]) -> bool:
+    """Check if any occurrence of keyword is negated by a nearby prefix.
+
+    Returns True if ALL occurrences are negated, False if at least one is not.
+    """
+    if not positions:
+        return False
+    lower_text = text.lower()
+    for pos in positions:
+        prefix_start = max(0, pos - _NEGATION_WINDOW)
+        prefix = lower_text[prefix_start:pos]
+        if not any(neg in prefix for neg in _NEGATION_PREFIXES):
+            return False  # at least one non-negated occurrence
+    return True
 
 
 def _extract_emotion_directions(text: str) -> set[str]:
-    """Return a set of emotion directions found in text: {'negative', 'positive'}."""
-    normalized = text.lower()
+    """Return a set of emotion directions found in text: {'negative', 'positive'}.
+
+    Uses the same _normalize_text + _contains_keyword toolchain as the rest
+    of the codebase for consistency. Negative keywords that are negated by
+    a nearby prefix (e.g. "不焦虑") are not counted as negative.
+    """
+    normalized, compact = _normalize_text(text)
     directions: set[str] = set()
+
     for kw in NEGATIVE_STATE_KEYWORDS:
-        kw_lower = kw.lower()
-        idx = normalized.find(kw_lower)
-        while idx >= 0:
-            # Check if the keyword is negated by a preceding word
-            prefix = normalized[max(0, idx - 6) : idx]
-            if not any(neg in prefix for neg in _NEGATION_PREFIXES):
+        if _contains_keyword(normalized, compact, kw):
+            # For Chinese keywords, check negation via prefix proximity;
+            # for English keywords, _contains_keyword already uses word
+            # boundary matching so negation is less of a concern, but we
+            # still check for robustness.
+            kw_norm, _ = _normalize_text(kw)
+            positions = _keyword_positions(normalized, kw_norm)
+            if not _is_negated(normalized, kw_norm, positions):
                 directions.add("negative")
                 break
-            idx = normalized.find(kw_lower, idx + len(kw_lower))
+
     for kw in POSITIVE_STATE_KEYWORDS:
-        if kw.lower() in normalized:
+        if _contains_keyword(normalized, compact, kw):
             directions.add("positive")
             break
+
     return directions
 
 
@@ -114,20 +160,18 @@ def _detect_cross_turn_contradiction(memory_summary: str, current_message: str) 
 
     Returns a contradiction hint string if a clear directional shift is found,
     or None if no contradiction is detected.
+
+    The memory_summary is a free-form string assembled by build_memory_snapshot
+    (profile || summary || assessment || checkin || recent_messages).
+    Rather than trying to parse its internal structure (which is fragile),
+    we run emotion direction extraction on the entire string. This is safe
+    because the memory snapshot only contains the user's own words and
+    metadata—any negative/positive signal in it reflects the user's prior state.
     """
     if not memory_summary or not current_message:
         return None
 
-    # Memory snapshot format: "piece1 || piece2 || ... | recent_msg1 | recent_msg2 | ..."
-    # The recent messages are at the end, separated by " | "
-    # We extract the last few user-side messages from memory.
-    recent_part = memory_summary
-    if " | " in memory_summary:
-        # Take the last segment that contains recent message excerpts
-        parts = memory_summary.rsplit(" | ", 3)
-        recent_part = " ".join(parts[-3:]) if len(parts) >= 3 else parts[-1]
-
-    prev_directions = _extract_emotion_directions(recent_part)
+    prev_directions = _extract_emotion_directions(memory_summary)
     curr_directions = _extract_emotion_directions(current_message)
 
     # Contradiction: previous turn was negative, current turn is positive (or vice versa)

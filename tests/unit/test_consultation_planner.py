@@ -157,3 +157,46 @@ def test_plan_consultation_keeps_original_hint_when_no_contradiction() -> None:
     assert "contradiction" not in result["loop_hint"].lower()
     # Should contain the original interview process hint
     assert len(result["loop_hint"]) > 0
+
+
+# --- B2.1 修正后的边界测试 ---
+
+
+def test_nfkc_normalization_fullwidth_anxious() -> None:
+    """全角字符通过 NFKC 归一化后应被正确识别。"""
+    # Fullwidth 'ａｎｘｉｏｕｓ' should match 'anxious' after NFKC
+    assert _extract_emotion_directions("I feel ａｎｘｉｏｕｓ") == {"negative"}
+
+
+def test_english_word_boundary_not_substring() -> None:
+    """英文短词不应匹配子串——'sad' 不应匹配 'sandwich'。"""
+    # 'sad' should NOT match inside 'sandwich' due to word boundary
+    assert _extract_emotion_directions("I had a sandwich") == set()
+
+
+def test_full_memory_snapshot_no_format_parsing_needed() -> None:
+    """完整 memory snapshot 格式（含 || 和 | 分隔符）不需要解析格式。"""
+    memory = "焦虑 || recent summary || assessment: PHQ-9=15 | 我最近很焦虑睡不着"
+    current = "我今天好多了，完全不焦虑了"
+    hint = _detect_cross_turn_contradiction(memory, current)
+    assert hint is not None
+    assert "improvement" in hint.lower() or "shift" in hint.lower()
+
+
+def test_negated_negative_not_counted_as_negative() -> None:
+    """否定后的负面词（如'不焦虑'）不应被计为 negative。"""
+    assert _extract_emotion_directions("我不焦虑") == set()
+
+
+def test_negated_negative_counted_as_positive_when_positive_also_present() -> None:
+    """'不焦虑了'应被正面前缀词识别为 positive（因为'不焦虑了'在 positive 列表中）。"""
+    assert _extract_emotion_directions("我不焦虑了，好多了") == {"positive"}
+
+
+def test_no_false_positive_on_metadata_text() -> None:
+    """memory 中的元数据文本不应误触发情绪方向。"""
+    memory = "User (mode=support, risk=low): 今天去公园散步了"
+    current = "我今天很开心"
+    # memory has no negative/positive signal, current is positive → no contradiction
+    hint = _detect_cross_turn_contradiction(memory, current)
+    assert hint is None
