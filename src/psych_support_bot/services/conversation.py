@@ -363,6 +363,8 @@ class ConversationService:
             "question_strategy": "open",
             "challenge_allowed": False,
             "loop_hint": "Start with broad exploration before narrowing.",
+            "exercise_history": [],
+            "refusal_history": [],
         }
         with trace_span(
             "conversation_graph.invoke",
@@ -397,6 +399,8 @@ class ConversationService:
                 "question_strategy": result.get("question_strategy", "open"),
                 "challenge_allowed": bool(result.get("challenge_allowed", False)),
                 "loop_hint": result.get("loop_hint", "Start with broad exploration before narrowing."),
+                "exercise_history": result.get("exercise_history", []),
+                "refusal_history": result.get("refusal_history", []),
             },
         )
         update_span_output(

@@ -13,9 +13,31 @@ from psych_support_bot.infra.llm.generation import (
 logger = logging.getLogger(__name__)
 
 
+def _inject_refusal_context(state: GraphState) -> None:
+    """B3.3: If user has refused exercises before, inject context into loop_hint.
+
+    This tells the LLM not to repeat recommendations for topics the user
+    has already declined, improving personalization.
+    """
+    refusal_history = state.get("refusal_history", [])
+    if not refusal_history:
+        return
+    refused_topics = ", ".join(refusal_history)
+    existing_hint = state.get("loop_hint", "")
+    refusal_note = (
+        f"User has previously declined exercises related to: {refused_topics}. "
+        "Do not recommend the same types of exercises again. "
+        "Offer a different approach or explore why the previous suggestion did not fit."
+    )
+    state["loop_hint"] = refusal_note + " " + existing_hint if existing_hint else refusal_note
+
+
 def generate_response(state: GraphState) -> GraphState:
     state["fallback_used"] = False
     risk_level = state["risk_result"].risk_level
+
+    # B3.3: Inject refusal history into loop_hint before LLM generation
+    _inject_refusal_context(state)
 
     # Only critical risk uses pure template reply (imminent danger)
     # High risk now goes through LLM with crisis safety prompt injected

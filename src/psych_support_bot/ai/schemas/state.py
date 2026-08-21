@@ -27,3 +27,6 @@ class GraphState(TypedDict):
     question_strategy: str
     challenge_allowed: bool
     loop_hint: str
+    # B3.1: Exercise history and refusal history for personalized recommendations
+    exercise_history: list[str]
+    refusal_history: list[str]
