@@ -26,7 +26,6 @@ def test_build_chat_model_uses_custom_base_url(monkeypatch) -> None:
     )
     monkeypatch.setenv("OPENAI_MODEL", "glm-5")
     get_settings.cache_clear()
-    build_chat_model.cache_clear()
 
     model = build_chat_model()
 

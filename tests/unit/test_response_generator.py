@@ -53,7 +53,8 @@ def _build_state(
     )
 
 
-def test_llm_failure_raises_instead_of_template_fallback(monkeypatch) -> None:
+def test_llm_failure_returns_template_fallback(monkeypatch) -> None:
+    """P0-1: LLM failure should set fallback_used=True and return a safe template reply, not raise."""
     monkeypatch.setattr(
         "psych_support_bot.ai.nodes.response_generator.generate_clinically_bounded_reply",
         lambda **_: (_ for _ in ()).throw(RuntimeError("llm unavailable")),
@@ -62,11 +63,11 @@ def test_llm_failure_raises_instead_of_template_fallback(monkeypatch) -> None:
         mode="support", user_message="I feel stressed and need support"
     )
 
-    try:
-        generate_response(state)
-        assert False, "expected RuntimeError"
-    except RuntimeError as exc:
-        assert "LLM generation failed" in str(exc)
+    result = generate_response(state)
+
+    assert result["fallback_used"] is True
+    assert result["generated_reply"].text
+    assert "here with you" in result["generated_reply"].text.lower()
 
 
 def test_crisis_mode_bypasses_llm(monkeypatch) -> None:
