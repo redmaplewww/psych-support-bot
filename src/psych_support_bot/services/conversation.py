@@ -5,6 +5,7 @@ from typing import Any, Literal, cast
 from sqlalchemy.orm import Session
 
 from psych_support_bot.ai.graphs.conversation import conversation_graph
+from psych_support_bot.ai.routers.intent import detect_mode
 from psych_support_bot.ai.schemas.messages import (
     ConversationMode,
     ConversationRequest,
@@ -173,6 +174,9 @@ class ConversationService:
                             "assessment_type": assessment_type,
                         },
                     )
+                user_mode = detect_mode(payload.message)
+                if user_mode != "assessment":
+                    return None
                 is_chinese = any("\u4e00" <= c <= "\u9fff" for c in payload.message)
                 max_hint = 4 if assessment_type == "isi" else 3
                 if is_chinese:
