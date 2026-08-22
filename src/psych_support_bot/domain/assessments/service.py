@@ -222,9 +222,25 @@ def detect_questionnaire_request(message: str) -> AssessmentType | None:
 
 
 def parse_questionnaire_answer(message: str, assessment_type: AssessmentType) -> int | None:
-    lowered = message.strip().casefold()
-    if lowered.isdigit():
-        value = int(lowered)
+    import re
+
+    # Remove zero-width chars, BOM, non-breaking spaces, and other
+    # invisible Unicode characters that may sneak in from web/mobile input.
+    _invisible = re.compile(r"[\u200b\u200c\u200d\ufeff\u00a0\u2060\u202e\u202c]")
+    cleaned = _invisible.sub("", message).strip().casefold()
+
+    # Direct digit match (after cleaning)
+    if cleaned.isdigit():
+        value = int(cleaned)
+        max_score = int(cast(dict[str, Any], QUESTIONNAIRES[assessment_type])["item_max_score"])
+        if 0 <= value <= max_score:
+            return value
+
+    # Extract a number from common patterns like "3。", "3，", '"3"', "3.",
+    # "选3", "3分" etc. — grab the first integer in the cleaned text.
+    num_match = re.search(r"\d+", cleaned)
+    if num_match:
+        value = int(num_match.group())
         max_score = int(cast(dict[str, Any], QUESTIONNAIRES[assessment_type])["item_max_score"])
         if 0 <= value <= max_score:
             return value
@@ -251,7 +267,7 @@ def parse_questionnaire_answer(message: str, assessment_type: AssessmentType) ->
         },
     }
     for value, aliases in option_aliases[assessment_type].items():
-        if any(alias in lowered for alias in aliases):
+        if any(alias in cleaned for alias in aliases):
             return value
     return None
 
