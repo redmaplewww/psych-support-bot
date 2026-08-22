@@ -52,6 +52,7 @@ def _build_state(
             "question_strategy": "open",
             "challenge_allowed": challenge_allowed,
             "loop_hint": "Start broad.",
+            "expected_language": "zh" if any("\u4e00" <= c <= "\u9fff" for c in user_message) else "en",
         },
     )
 

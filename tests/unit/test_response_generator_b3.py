@@ -52,6 +52,7 @@ def _build_state(
             "loop_hint": loop_hint,
             "exercise_history": [],
             "refusal_history": refusal_history if refusal_history is not None else [],
+            "expected_language": "zh" if any("\u4e00" <= c <= "\u9fff" for c in "我最近很焦虑") else "en",
         },
     )
 

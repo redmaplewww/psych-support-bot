@@ -5,8 +5,11 @@ def _is_chinese(text: str) -> bool:
     return any("\u4e00" <= c <= "\u9fff" for c in text)
 
 
-def build_crisis_reply(risk: RiskResult, *, user_message: str = "") -> str:
-    is_zh = bool(user_message) and _is_chinese(user_message)
+def build_crisis_reply(risk: RiskResult, *, user_message: str = "", expected_language: str = "") -> str:
+    if expected_language:
+        is_zh = expected_language == "zh"
+    else:
+        is_zh = bool(user_message) and _is_chinese(user_message)
     if risk.risk_level == "critical":
         if is_zh:
             return (

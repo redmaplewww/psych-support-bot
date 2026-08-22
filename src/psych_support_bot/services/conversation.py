@@ -38,6 +38,53 @@ from psych_support_bot.infra.llm.generation import generate_questionnaire_reply
 from psych_support_bot.infra.telemetry.tracing import trace_span, update_span_output
 
 
+def _has_chinese(text: str) -> bool:
+    return any("\u4e00" <= char <= "\u9fff" for char in text)
+
+
+def _is_language_neutral(text: str) -> bool:
+    """Return True when the text contains no Chinese characters and no
+    ASCII letter words, meaning the language cannot be reliably detected.
+    Examples: pure numbers ("3"), punctuation ("..."), single letters ("y")."""
+    stripped = text.strip()
+    if not stripped:
+        return True
+    if stripped.isdigit():
+        return True
+    import re
+
+    has_ascii_words = bool(re.search(r"[a-zA-Z]{3,}", stripped))
+    has_chinese = _has_chinese(stripped)
+    return not has_chinese and not has_ascii_words
+
+
+def _detect_expected_language(
+    current_message: str,
+    prior_messages: list[Any] | None = None,
+) -> str:
+    """Determine the expected conversation language.
+
+    If the current message contains enough linguistic signal (Chinese
+    characters or ASCII words), use it directly. Otherwise, walk
+    backwards through *prior_messages* (role == 'user') to find the
+    most recent message with clear language signal and inherit its
+    language. Falls back to 'en' when nothing is found.
+    """
+    if not _is_language_neutral(current_message):
+        return "zh" if _has_chinese(current_message) else "en"
+
+    if prior_messages:
+        for msg in reversed(prior_messages):
+            if getattr(msg, "role", None) != "user":
+                continue
+            content = getattr(msg, "content", "")
+            if _is_language_neutral(content):
+                continue
+            return "zh" if _has_chinese(content) else "en"
+
+    return "en"
+
+
 class ConversationService:
     def _build_response(
         self,
@@ -115,15 +162,7 @@ class ConversationService:
             answer_value = parse_questionnaire_answer(payload.message, assessment_type)
             answers = cast(list[int], json.loads(active_session.answers_json or "[]"))
             prior_messages = get_session_messages(session, active_session.id)
-            first_user_text = next(
-                (
-                    message.content
-                    for message in prior_messages
-                    if message.role == "user" and not message.content.strip().isdigit()
-                ),
-                payload.message,
-            )
-            expected_language = "zh" if any("\u4e00" <= c <= "\u9fff" for c in first_user_text) else "en"
+            expected_language = _detect_expected_language(payload.message, prior_messages)
             guide = questionnaire_guide(assessment_type, language=expected_language)
             view = build_questionnaire_session_view(
                 session_id=active_session.id,
@@ -163,7 +202,7 @@ class ConversationService:
                             "assessment_type": assessment_type,
                         },
                     )
-                is_chinese = any("\u4e00" <= c <= "\u9fff" for c in payload.message)
+                is_chinese = expected_language == "zh"
                 max_hint = 4 if assessment_type == "isi" else 3
                 if is_chinese:
                     error_hint = f"请回复一个数字（0到{max_hint}之间），对应你的感受。"
@@ -280,7 +319,7 @@ class ConversationService:
             return None
 
         record = create_questionnaire_session(session, payload.user_id, requested)
-        expected_language = "zh" if any("\u4e00" <= c <= "\u9fff" for c in payload.message) else "en"
+        expected_language = _detect_expected_language(payload.message)
         guide = questionnaire_guide(requested, language=expected_language)
         view = build_questionnaire_session_view(
             session_id=record.id,
@@ -330,6 +369,13 @@ class ConversationService:
 
         session_id = payload.session_id or str(uuid4())
         memory_summary = payload.memory_summary or build_memory_snapshot(session, payload.user_id)
+
+        # Determine the expected language from the current message and,
+        # when the message is language-neutral (e.g. pure numbers), from
+        # prior conversation history so the language stays consistent.
+        prior_messages = get_session_messages(session, session_id) if payload.session_id else []
+        expected_language = _detect_expected_language(payload.message, prior_messages)
+
         state: GraphState = {
             "user_id": payload.user_id,
             "session_id": session_id,
@@ -361,6 +407,7 @@ class ConversationService:
             "loop_hint": "Start with broad exploration before narrowing.",
             "exercise_history": [],
             "refusal_history": [],
+            "expected_language": expected_language,
         }
         with trace_span(
             "conversation_graph.invoke",

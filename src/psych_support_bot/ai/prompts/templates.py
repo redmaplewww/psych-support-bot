@@ -1,6 +1,13 @@
-def build_language_lock_prompt(user_message: str) -> str:
-    has_chinese = any("\u4e00" <= char <= "\u9fff" for char in user_message)
-    if has_chinese:
+def build_language_lock_prompt(expected_language: str = "", *, user_message: str = "") -> str:
+    """Build a language-lock instruction.
+
+    Prefer passing *expected_language* directly ("zh" or "en").
+    If empty, fall back to detecting from *user_message* for backward
+    compatibility.
+    """
+    if not expected_language and user_message:
+        expected_language = "zh" if any("\u4e00" <= char <= "\u9fff" for char in user_message) else "en"
+    if expected_language == "zh":
         return (
             "Language lock: the user is writing in Chinese. You must reply fully in natural Simplified Chinese only. "
             "Do not switch to English for headings, labels, explanations, examples, questionnaires, or closing lines. "
@@ -132,12 +139,19 @@ def build_context_prompt(memory_summary: str, knowledge_context: str) -> str:
     return f"Known user memory summary: {memory_summary or 'No prior memory.'} Relevant practice context: {context}"
 
 
-def build_output_prompt(mode: str, risk_level: str, user_message: str) -> str:
-    expected_language = "zh" if any("\u4e00" <= char <= "\u9fff" for char in user_message) else "en"
+def build_output_prompt(
+    mode: str,
+    risk_level: str,
+    user_message: str = "",
+    *,
+    expected_language: str = "",
+) -> str:
+    if not expected_language and user_message:
+        expected_language = "zh" if any("\u4e00" <= char <= "\u9fff" for char in user_message) else "en"
     reflection_label, hypothesis_label, question_label = build_visible_reply_labels(expected_language)
     return (
         f"Conversation mode: {mode}. {build_system_guidance(mode=mode, risk_level=risk_level)} "
-        f"{build_language_lock_prompt(user_message)} "
+        f"{build_language_lock_prompt(expected_language)} "
         f"Keep the reply under 180 words when possible. Write in exactly three user-facing parts in this order: {reflection_label}, {hypothesis_label}, {question_label}. {reflection_label} should briefly mirror the user's core tension or pain. {hypothesis_label} should be tentative, plain-language, and explicitly non-diagnostic. {question_label} should contain exactly one question that moves the process forward. The question may be open, clarifying, looping, or gently challenging depending on the process needs."
     )
 
@@ -234,8 +248,10 @@ def build_consultation_synthesis_prompt(
     question_strategy: str,
     challenge_allowed: bool,
     loop_hint: str,
+    expected_language: str = "",
 ) -> str:
-    expected_language = "zh" if any("\u4e00" <= char <= "\u9fff" for char in user_message) else "en"
+    if not expected_language and user_message:
+        expected_language = "zh" if any("\u4e00" <= char <= "\u9fff" for char in user_message) else "en"
     reflection_label, hypothesis_label, question_label = build_visible_reply_labels(expected_language)
     return "\n\n".join(
         [
@@ -262,6 +278,7 @@ def build_consultation_synthesis_prompt(
                 mode=mode,
                 risk_level=risk_level,
                 user_message=user_message,
+                expected_language=expected_language,
             ),
             "Consultation roster:\n" + consultation_framework,
             "Consultation opinions:\n" + consultation_opinions,

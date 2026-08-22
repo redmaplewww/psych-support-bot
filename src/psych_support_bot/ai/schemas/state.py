@@ -30,3 +30,6 @@ class GraphState(TypedDict):
     # B3.1: Exercise history and refusal history for personalized recommendations
     exercise_history: list[str]
     refusal_history: list[str]
+    # Language determined from conversation history to keep language consistent
+    # even when the current message is language-neutral (e.g. pure numbers).
+    expected_language: str

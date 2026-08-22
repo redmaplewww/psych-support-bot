@@ -190,8 +190,9 @@ def _is_chinese(text: str) -> bool:
     return any("\u4e00" <= char <= "\u9fff" for char in text)
 
 
-def _fallback_text(user_message: str) -> str:
-    if _is_chinese(user_message):
+def _fallback_text(user_message: str, expected_language: str = "") -> str:
+    lang = expected_language or ("zh" if _is_chinese(user_message) else "en")
+    if lang == "zh":
         return "我在这里陪你。我们先把节奏放慢一点，只聚焦眼前一个小步骤。"
     return "I am here with you. Let us slow this down and focus on one small next step together."
 
@@ -260,15 +261,15 @@ def review_response(state: GraphState) -> GraphState:
 
     if has_leak:
         # Prompt leak: full replacement (safety critical)
-        text = _fallback_text(state["user_message"])
+        text = _fallback_text(state["user_message"], state.get("expected_language", ""))
     elif has_diagnosis or has_overreach:
         # Diagnosis/overreach: truncate violating sentences, keep the rest
         sanitized, was_modified = _sanitize_text(text)
-        text = sanitized if (was_modified and sanitized) else _fallback_text(state["user_message"])
+        text = sanitized if (was_modified and sanitized) else _fallback_text(state["user_message"], state.get("expected_language", ""))
     elif has_challenge:
         # Challenge in non-challenge-allowed context: remove challenge sentences
         sanitized, was_modified = _sanitize_challenge(text)
-        text = sanitized if (was_modified and sanitized) else _fallback_text(state["user_message"])
+        text = sanitized if (was_modified and sanitized) else _fallback_text(state["user_message"], state.get("expected_language", ""))
 
     state["generated_reply"].text = text
 

@@ -50,6 +50,7 @@ def _build_state(
             "loop_hint": "Start broad.",
             "exercise_history": [],
             "refusal_history": refusal_history or [],
+            "expected_language": "zh" if any("\u4e00" <= c <= "\u9fff" for c in user_message) else "en",
         },
     )
 

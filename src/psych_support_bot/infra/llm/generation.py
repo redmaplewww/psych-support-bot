@@ -174,8 +174,10 @@ def generate_multidisciplinary_consultation(
     question_strategy: str,
     challenge_allowed: bool,
     loop_hint: str,
+    expected_language: str = "",
 ) -> tuple[str, list[dict[str, str]]]:
-    expected_language = _expected_language(user_message)
+    if not expected_language:
+        expected_language = _expected_language(user_message)
     agents = consultation_agents()
     with ThreadPoolExecutor(max_workers=len(agents)) as executor:
         futures = [
@@ -210,6 +212,7 @@ def generate_multidisciplinary_consultation(
         question_strategy=question_strategy,
         challenge_allowed=challenge_allowed,
         loop_hint=loop_hint,
+        expected_language=expected_language,
     )
     reply_text = _invoke(synthesis_prompt, user_message, expected_language, mode=mode)
     return reply_text, opinions
@@ -228,8 +231,10 @@ def generate_clinically_bounded_reply(
     question_strategy: str = "open",
     challenge_allowed: bool = False,
     loop_hint: str = "Start broad, then narrow.",
+    expected_language: str = "",
 ) -> str:
-    expected_language = _expected_language(user_message)
+    if not expected_language:
+        expected_language = _expected_language(user_message)
     system_prompt = "\n\n".join(
         [
             build_role_prompt(),
@@ -250,7 +255,12 @@ def generate_clinically_bounded_reply(
                 memory_summary=memory_summary,
                 knowledge_context=knowledge_context,
             ),
-            build_output_prompt(mode=mode, risk_level=risk_level, user_message=user_message),
+            build_output_prompt(
+                mode=mode,
+                risk_level=risk_level,
+                user_message=user_message,
+                expected_language=expected_language,
+            ),
         ]
     )
     # Inject diagnosis refusal prompt if user is asking for a diagnosis

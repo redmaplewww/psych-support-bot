@@ -47,6 +47,7 @@ def _build_state(*, mode: ConversationMode, user_message: str, risk_level: RiskL
             "question_strategy": "open",
             "challenge_allowed": False,
             "loop_hint": "Start broad, reflect the main concern, then narrow only after the user gives specifics.",
+            "expected_language": "zh" if any("\u4e00" <= c <= "\u9fff" for c in user_message) else "en",
         },
     )
 
