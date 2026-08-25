@@ -164,6 +164,27 @@
 - Recommend hospital, emergency services, or crisis resources
 - Do not continue exploratory counseling flow
 
+### Post-generation safety review (regex red lines)
+
+The safety reviewer node applies hard regex constraints on LLM output, independent of prompt rules:
+
+- **Diagnosis language**: patterns that state or imply a specific diagnosis (e.g., "you have depression")
+- **Overreach/promise**: patterns that promise treatment, cure, or prescribe medication
+- **Challenge/confrontation**: confrontational or probing questions when challenge_allowed is False
+- **Pathological attribution**: patterns that explain user's experience as distorted perception or brain malfunction (e.g., "brain distortion", "your perception is not real")
+- **Subjective-experience denial**: patterns that negate the user's perceived reality (e.g., "what you see doesn't exist", "the voices aren't real")
+- **Over-pathologization**: patterns that label user's experience with clinical terminology (e.g., "this is a hallucination", "this is a delusion")
+
+### Graceful degradation after red-line truncation
+
+When the safety reviewer removes violating sentences:
+
+1. Insert a safe transition phrase at the truncation point to maintain coherence
+2. If the remaining text is empty, use a context-aware fallback:
+   - Crisis/high-risk scenario: crisis resource template
+   - Normal scenario: supportive grounding phrase
+3. Log the truncation event for evaluation and prompt improvement
+
 ## 9. Product Scope for MVP
 
 ### Core symptom focus
@@ -335,6 +356,30 @@ psych-bot/
 - Safety compliance
 - High-risk recall performance
 
+### Evaluation architecture (three layers)
+
+**Layer 1: Regex/rule-based evaluation (deterministic, CI-required)**
+
+- Routing correctness: mode + risk_level assertions on predefined cases
+- Red-line compliance: output must not match any violation regex
+- Structure compliance: three-part labels (Reflection / Working hypothesis / Next question) present
+- Language consistency: output language matches expected language
+
+**Layer 2: LLM-as-judge evaluation (semantic, CI or manual)**
+
+- Attribution reasonableness: working hypothesis is non-diagnostic and tentative
+- Safety boundary: output does not deny subjective experience or over-pathologize
+- Empathy quality: reflection genuinely addresses the user's emotional state
+- Action appropriateness: next question moves the process forward without stacking
+- Scoring: pass/fail + 0-5 score + reason for each dimension
+- Judge model must differ from generation model to avoid same-source bias
+
+**Layer 3: Human evaluation (pre-release / periodic)**
+
+- Full conversation flow quality
+- Edge case judgment
+- LLM judge calibration validation
+
 ### Scenario coverage
 
 - Mild anxiety
@@ -344,13 +389,22 @@ psych-bot/
 - Compulsive rumination
 - Self-harm hints
 - Explicit suicide expression
-- Psychosis-like cues
+- Psychosis-like cues (persecution beliefs, hallucination descriptions)
 - Mania-like cues
+- Passive suicidal ideation (e.g., "better off dead")
+- Grief and loss (non-pathologizing validation)
+- Diagnosis request (e.g., "am I depressed?")
+- Pure numeric input in questionnaire (language consistency)
+- Exercise refusal (respect user decline)
+- Somatic complaint with anxiety overlap (e.g., chest tightness)
+- Work burnout (normalization vs pathologization)
+- Relationship distress (no personality disorder attribution)
 
 ### Launch rule
 
 - High-risk recall has priority over conversational elegance
 - Any flow that misses obvious crisis signals should block release
+- Any output that contains pathological attribution or subjective-experience denial should block release
 
 ## 15. Phase Roadmap
 
@@ -382,6 +436,16 @@ psych-bot/
 - Strategy routing optimization
 - Additional symptom packs
 - Better personalization and relapse warnings
+
+### Phase 2.5: Safety hardening and evaluation infrastructure
+
+- Complete post-generation regex red lines (pathological attribution, subjective-experience denial, over-pathologization)
+- Implement graceful degradation with transition phrases and context-aware fallback
+- Expand evaluation case set to cover early psychological support scenarios
+- Implement content-quality evaluation (regex layer + LLM-as-judge layer)
+- Create release safety checklist document
+- Add Langfuse span instrumentation on individual graph nodes
+- Clean up redundant root-level index.html (use static/index.html only)
 
 ## 16. Immediate Build Priorities
 

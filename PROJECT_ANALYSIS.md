@@ -1,7 +1,7 @@
 # Psych-Support-Bot 项目分析报告
 
-> 审查日期：2026-08-20
-> 审查范围：全量源码 + Langfuse 集成改动
+> 审查日期：2026-08-20（初版）/ 2026-08-23（更新）
+> 审查范围：全量源码 + Langfuse 集成改动 + dev 分支 PR 改动
 > 审查视角：第三方独立审查
 
 ---
@@ -126,7 +126,7 @@ conversation_graph.invoke (span)
 | # | 能力 | 源码位置 | 说明 |
 |---|---|---|---|
 | 1 | 确定性风险分类 | `ai/safety/rules.py` | 关键词匹配 + 否定检测 + 时效性升级，中英文双语 |
-| 2 | 危机模式拦截 | `ai/safety/crisis.py` | critical/high 风险跳过 LLM，直接输出安全回复 + 热线 |
+| 2 | 危机模式拦截 | `ai/safety/crisis.py` | critical 走纯模板；high 走 LLM + crisis safety prompt（P0-6 改动） |
 | 3 | LangGraph 对话流 | `ai/graphs/conversation.py` | 8 节点线性图，风险优先路由 |
 | 4 | 意图路由 | `ai/routers/intent.py` | 关键词路由到 support/assessment/intervention/planning/crisis |
 | 5 | 多流派会诊 | `ai/consultation.py` + `infra/llm/generation.py` | 5 个 Agent 并行调用 + 综合，ThreadPoolExecutor 并发 |
@@ -134,7 +134,7 @@ conversation_graph.invoke (span)
 | 7 | 量表评估全流程 | `domain/assessments/` | PHQ-9/GAD-7/ISI 完整：引导→答题→评分→解读→安全标志 |
 | 8 | 每日打卡 | `api/routes/checkins.py` + 持久化 | mood/anxiety/sleep/energy 4 维 |
 | 9 | 知识摄入管道 | `knowledge_ingestion.py`（852 行） | URL 抓取 + HTML 清洗 + PDF/TXT/MD 导入 + 分块 + 主题推断 + 学习笔记合成 |
-| 10 | LLM 语言锁 | `infra/llm/generation.py` | 中文输入→中文输出，英文输入→英文输出，违反时自动重试 |
+| 10 | LLM 语言锁 | `infra/llm/generation.py` + `services/conversation.py` | 中文输入→中文输出，英文输入→英文输出，违反时自动重试；纯数字/标点输入回溯历史消息保持语言一致（dev 新增 `_detect_expected_language`） |
 | 11 | **Langfuse 追踪** | `infra/telemetry/tracing.py` + `services/conversation.py` + `infra/llm/generation.py` + `app.py` | 对话图调用 + 每次 LLM 调用 + retry 的完整 span 链路 |
 | 12 | 基础知识检索 | `ai/knowledge/index.py` | 关键词匹配 + 多维评分（mode/topics/keywords/source 加权） |
 | 13 | CBT/ACT/DBT 知识库 | `ai/knowledge/{cbt,act,dbt}.py` | 认知扭曲目录 + 练习模板 + 技能指南，内容专业且详实 |
@@ -145,24 +145,25 @@ conversation_graph.invoke (span)
 
 | # | 能力 | 当前状态 | 缺口 |
 |---|---|---|---|
-| 1 | 安全审查器 | `safety_reviewer.py` 仅检测 Prompt 泄露 | 不检查诊断语言/不当建议/安全边界越界 |
+| 1 | 安全审查器 | `safety_reviewer.py` 已有诊断语言/越界承诺/质询检测 + 句子级截断（P0-3/B2.3 修复） | **缺病理性归因、主观体验否定、过度病理化标签三类正则红线**；截断后无过渡衔接；fallback 不分危机场景 |
 | 2 | 趋势分析 | `domain/reports/trends.py` 有前后半段均值比较 | 无异常检测、无关联评估变化、无主动预警 |
 | 3 | 周报 | `domain/reports/service.py` 输出一行均值文本 | 无临床解读、无异常标记 |
 | 4 | 干预计划 | `domain/plans/templates.py` 3 个静态模板 | 无每日内容、无进度跟踪、无个性化 |
-| 5 | 记忆系统 | `repositories.py` 的 `build_memory_snapshot` 拼接快照 | 非结构化、无跨轮次矛盾检测、无用户可见控制 |
-| 6 | 评估体系 | `tests/evals/cases.json` 17 个场景 | 缺 3 个计划维度，无回复质量评估 |
+| 5 | 记忆系统 | `repositories.py` 的 `build_memory_snapshot` 拼接画像+评估+打卡+最近消息 | 超过 3 个 session 的深度对话丢失上下文；无语义检索；无摘要质量校验 |
+| 6 | 评估体系 | `tests/evals/cases.json` 17 个场景，仅检查路由正确性 | **无回复内容质量评测**；缺精神病性体验/悲伤非病理化/被动自杀等场景；无 LLM 评测员 |
+| 7 | 前端 | `static/index.html` 4 Tab（聊天/练习/评估/打卡） | 根目录有冗余 `index.html` 造成混淆 |
 
 ### ❌ 完全缺失
 
 | # | 能力 | 影响 |
 |---|---|---|
 | 1 | Onboarding 流程 | 用户无法理解产品边界、无初始安全筛查 |
-| 2 | 前端界面（除聊天外） | 评估/练习/打卡/报告/计划对用户不可见 |
-| 3 | pgvector 语义检索 | 无法语义匹配，非安全路径的 RAG 能力受限 |
-| 4 | 跨轮次矛盾检测 | 单轮质询无法发现"上一轮说的 A 和这一轮说的 B 矛盾" |
-| 5 | 诊断请求确定性拦截 | 用户说"我是不是抑郁症"时，意图路由不保证拦截诊断请求 |
-| 6 | Redis/Celery 集成 | 异步摘要写入、定时周报生成无法处理 |
-| 7 | LLM 降级策略 | `response_generator.py` 第 59 行 `raise RuntimeError` 后的 fallback 代码不可达 |
+| 2 | pgvector 语义检索 | 无法语义匹配，非安全路径的 RAG 能力受限 |
+| 3 | 跨轮次矛盾检测 | 单轮质询无法发现"上一轮说的 A 和这一轮说的 B 矛盾"（B2.1 有关键词检测但无跨轮对比） |
+| 4 | Redis/Celery 集成 | 异步摘要写入、定时周报生成无法处理 |
+| 5 | 安全发布清单 | 无正式的发布前安全检查文档 |
+| 6 | Langfuse 节点级追踪 | 只有顶层 span，各图节点无独立 span，无法定位瓶颈 |
+| 7 | 内容质量评测集（LLM-as-judge） | 无语义级输出质量评测，无法发现"大脑扭曲感知"类问题 |
 
 ---
 
@@ -296,20 +297,26 @@ conversation_graph.invoke (span)
 |---|---|---|---|
 | 1 | **`response_generator.py` fallback bug** | 第 57-60 行：`raise RuntimeError` 后 `state["fallback_used"] = True` 不可达 | LLM 调用失败时服务直接崩溃，用户无任何回复 |
 | 2 | **Alembic 迁移不完整** | `questionnaire_sessions` 表无迁移；`assessments` 表缺 5 个字段（`plain_meaning`/`functional_impact`/`care_consideration`/`disclaimer`/`needs_safety_followup`） | PostgreSQL 生产环境跑 Alembic 后问卷功能崩溃 |
-| 3 | **safety_reviewer 空心化** | `ai/nodes/safety_reviewer.py` 仅检测 prompt 泄露 | 不检查回复是否含诊断语言、不当建议、越界承诺 |
-| 4 | **.env 密钥泄露风险** | `.env` 含明文 API Key 和 Langfuse 密钥 | 如果 git 提交会导致密钥泄露 |
-| 5 | **无诊断请求确定性拦截** | `ai/routers/intent.py` 无诊断请求关键词 | 用户问"我是不是抑郁症"时 LLM 可能给出诊断性回复，违反安全边界。详见[质询机制分析 §4.6](#46-拒答机制现状) |
+| ~~3~~ | ~~**safety_reviewer 空心化**~~ | ✅ 已修复（P0-3/B2.3）：已加诊断语言/越界承诺/质询检测 + 句子级截断。**但缺病理性归因/主观体验否定/过度病理化三类正则** |
+| ~~4~~ | ~~**.env 密钥泄露风险**~~ | ✅ 已修复：.gitignore + CI secrets-check |
+| ~~5~~ | ~~**无诊断请求确定性拦截**~~ | ✅ 已修复（P0-5）：`intent.py` 已加 `DIAGNOSIS_KEYWORDS`，`generation.py` 注入诊断拒答 prompt |
+| 6 | **病理性归因正则缺失** | `safety_reviewer.py` 现有正则不匹配"大脑扭曲感知""你的感知不真实"等表述 | LLM 自行生成的病理性归因不会被拦截，对精神病性用户造成二次伤害 |
+| 7 | **主观体验否定正则缺失** | `safety_reviewer.py` 不匹配"你看到的不存在""你听到的不是真的"等 | 否定用户主观体验，破坏信任，加剧孤立感 |
+| 8 | **截断后无软着陆过渡** | `_sanitize_text` 删违规句后直接输出剩余内容 | 回复可能断裂，用户体验突兀；fallback 不区分危机场景 |
 
 ### 🟡 P1 — 应该做（影响产品可用性和核心价值闭环）
 
 | # | 问题 | 说明 |
 |---|---|---|
-| 6 | **前端功能补全** | 后端评估/练习/打卡 API 已就绪，但前端未暴露，用户只能聊天 |
-| 7 | **跨轮次矛盾检测** | 当前质询仅限单轮，无法发现用户前后表述矛盾。这是质询机制的核心缺口，详见[质询机制分析 §4.7](#47-核心缺口) |
+| ~~6~~ | ~~**前端功能补全**~~ | ✅ 已完成：`static/index.html` 4 Tab（聊天/练习/评估/打卡） |
+| 7 | **跨轮次矛盾检测** | B2.1 有关键词检测但无跨轮对比。详见[质询机制分析 §4.7](#47-核心缺口) |
 | 8 | **干预计划内容填充** | 3 个计划模板仅存目录，无每日步骤和进度跟踪 |
-| 9 | **质询合理性后置审查** | safety_reviewer 应检查 LLM 质询是否过度激进、是否在不应质询时质询了。详见[质询机制分析 §4.7](#47-核心缺口) |
+| ~~9~~ | ~~**质询合理性后置审查**~~ | ✅ 已完成（B2.3）：`safety_reviewer` 在 `challenge_allowed=False` 时截断质询语言 |
 | 10 | **周报临床化** | 仅均值统计无异常检测，不具备早期预警能力 |
-| 11 | **评估体系深化** | 补充躁狂/OCD/焦虑+失眠共病场景，增加回复质量评估维度 |
+| 11 | **评估体系深化** | 补充精神病性体验/悲伤非病理化/被动自杀等场景，增加回复内容质量评估（正则 + LLM-as-judge） |
+| 12 | **安全发布清单** | 无正式的发布前安全检查文档 |
+| 13 | **Langfuse 节点级追踪** | 只有顶层 span，各图节点无独立 span |
+| 14 | **清理冗余 index.html** | 根目录 `index.html` 与 `static/index.html` 重复，造成混淆 |
 
 ### 🟢 P2 — 可以做（增强能力，不阻塞上线）
 
@@ -335,38 +342,100 @@ conversation_graph.invoke (span)
 
 ---
 
+## 2026-08-23 更新说明
+
+本次更新基于 dev 分支（`0253a93`）的全面审查，主要变更：
+
+### 已修复的 P0 项（打删除线标记）
+
+| 原编号 | 问题 | 修复提交 |
+|---|---|---|
+| P0-1 | response_generator fallback bug | `6e5b263` |
+| P0-2 | Alembic 迁移不完整 | `29deaa3` |
+| P0-3 | safety_reviewer 空心化 | `222aa44`（诊断/越界检测 + 句子级截断） |
+| P0-4 | .env 密钥泄露 | .gitignore + CI secrets-check |
+| P0-5 | 无诊断请求拦截 | `b1e3d58`（DIAGNOSIS_KEYWORDS + 拒答 prompt） |
+| P0-6 | high 风险走纯模板 | `5846e99`（high 走 LLM + crisis safety prompt） |
+| P0-7 | crisis 关键词过于宽泛 | `b2737a0`（移除 "help me"） |
+| P0-16 | 无 mode-based temperature | `aca2888`（crisis=0.0, support=0.4 等） |
+
+### 新增缺口（本次审查发现）
+
+| # | 缺口 | 优先级 | 说明 |
+|---|---|---|---|
+| 新-1 | 病理性归因正则缺失 | P0 | LLM 生成"大脑扭曲感知"等表述不被拦截 |
+| 新-2 | 主观体验否定正则缺失 | P0 | "你看到的不存在"等表述不被拦截 |
+| 新-3 | 过度病理化标签正则缺失 | P0 | "这是幻觉""这是妄想"等表述不被拦截 |
+| 新-4 | 截断后无过渡衔接 | P0 | 删违规句后回复可能断裂 |
+| 新-5 | fallback 不分场景 | P0 | 高危截断全空时应用 crisis 模板 |
+| 新-6 | 内容质量评测集缺失 | P1 | 现有 eval 只检查路由，不检查 reply text |
+| 新-7 | LLM-as-judge 评测员缺失 | P1 | 正则测不到的语义问题需要 LLM 语义判断 |
+| 新-8 | 评测场景覆盖不足 | P1 | 缺精神病性体验/悲伤非病理化/被动自杀等 |
+| 新-9 | 安全发布清单缺失 | P1 | 无正式发布前检查文档 |
+| 新-10 | Langfuse 节点级追踪缺失 | P1 | 只有顶层 span，无法定位节点瓶颈 |
+| 新-11 | 根目录冗余 index.html | P1 | 与 static/index.html 重复 |
+
+### 记忆系统评估更新
+
+原报告将记忆系统标记为"非结构化拼接"，经详细审查 `build_memory_snapshot` 实现，更新评估：
+
+- 实际已聚合：用户画像 + 最近会话摘要 + 最近 3 个 session 的 6 条消息 + 最近 3 次评估结果 + 最近 3 次打卡均值
+- 对于早期心理疏导的 MVP 阶段，此设计**合理**——token 可控，核心上下文不丢
+- 真正缺口在于：超过 3 个 session 的深度对话会丢失早期上下文；无语义检索；无摘要质量校验
+- 这些属于 P2 级别，不阻塞早期疏导业务
+
+---
+
 ## 六、下一步建议执行顺序
 
 ```
-立即修复（P0）
-  ├── 1. 修复 response_generator.py fallback bug
-  ├── 2. 补全 Alembic 迁移（questionnaire_sessions + assessments 字段）
-  ├── 3. 增强 safety_reviewer（诊断语言检测 + 边界检查）
-  ├── 4. .env 加入 .gitignore，提供 .env.example
-  └── 5. 诊断请求确定性拦截路由（intent.py 增加诊断关键词检测）
+已完成（原 P0）
+  ├── ✅ 1. 修复 response_generator.py fallback bug（P0-1）
+  ├── ✅ 2. 补全 Alembic 迁移（P0-2）
+  ├── ✅ 3. 增强 safety_reviewer：诊断/越界/质询检测 + 句子级截断（P0-3/B2.3）
+  ├── ✅ 4. .env 加入 .gitignore + CI secrets-check（P0-4）
+  ├── ✅ 5. 诊断请求确定性拦截（P0-5）
+  ├── ✅ 6. high 风险走 LLM + crisis prompt（P0-6）
+  ├── ✅ 7. crisis 关键词对齐（P0-7）
+  ├── ✅ 8. mode-based temperature（P0-16）
+  ├── ✅ 9. 跨轮次矛盾检测关键词（B2.1）
+  ├── ✅ 10. 前端 4 Tab 界面（C1-C4）
+  ├── ✅ 11. 语言一致性 + 问卷解析增强
+  └── ✅ 12. Docker 部署 + 阿里云镜像源
+
+立即修复（新 P0）
+  ├── 1. 病理性归因正则红线
+  ├── 2. 主观体验否定正则红线
+  ├── 3. 过度病理化标签正则红线
+  ├── 4. 截断后软着陆过渡衔接
+  └── 5. fallback 分场景（危机 vs 普通）
 
 短期补足（P1）
-  ├── 6. 前端：评估问卷引导界面 + 每日打卡界面
-  ├── 7. 跨轮次矛盾检测节点（consultation_planner 引入历史消息对比）
-  ├── 8. 干预计划每日内容填充
-  ├── 9. 质询合理性后置审查（safety_reviewer 增加质询强度检查）
-  ├── 10. 周报异常检测逻辑
-  └── 11. 评估场景补全 + 回复质量评估
+  ├── 6. 评测集场景扩展（精神病性/悲伤/被动自杀等）
+  ├── 7. 内容质量评测（正则层：红线 + 结构 + 语言）
+  ├── 8. 内容质量评测（LLM-as-judge 层）
+  ├── 9. 安全发布清单文档
+  ├── 10. Langfuse 节点级 span + flush
+  ├── 11. 清理根目录冗余 index.html
+  ├── 12. 跨轮次矛盾检测（结构化对比）
+  ├── 13. 干预计划每日内容填充
+  └── 14. 周报异常检测逻辑
 
 中期增强（P2）
-  ├── 12. pgvector 语义检索（非安全路径）
-  ├── 13. 模型路由 + 降级策略
-  ├── 14. 知识库中文源补充
-  ├── 15. Redis/Celery 异步任务
-  └── 16. 耗竭检测精细化
+  ├── 15. pgvector 语义检索（非安全路径）
+  ├── 16. 模型路由 + 降级策略
+  ├── 17. 知识库中文源补充
+  ├── 18. Redis/Celery 异步任务
+  ├── 19. 耗竭检测精细化
+  └── 20. 记忆检索语义化（超过 3 session 的深度对话）
 
 长期演进（P3）
-  ├── 17. Langfuse Score 闭环
-  ├── 18. Relapse 预警模型
-  ├── 19. 个性化策略路由
-  ├── 20. 单轮关键词检测精度提升（LLM 辅助语用分析）
-  ├── 21. 多语言扩展
-  └── 22. Admin 审计后台
+  ├── 21. Langfuse Score 闭环
+  ├── 22. Relapse 预警模型
+  ├── 23. 个性化策略路由
+  ├── 24. 单轮关键词检测精度提升（LLM 辅助语用分析）
+  ├── 25. 多语言扩展
+  └── 26. Admin 审计后台
 ```
 
 ---

@@ -75,9 +75,22 @@
 | Task | Priority | Status | Notes |
 | --- | --- | --- | --- |
 | Define risk levels and contracts | High | Done | Low/elevated/high/critical scaffold added |
-| Create risk regression dataset | High | In progress | Rule-based safety tests added |
-| Build evaluation runner | High | In progress | Safety regression tests added via pytest |
-| Add Langfuse tracing | Medium | In progress | Config helper added; full tracing still pending |
+| Post-generation regex: diagnosis language | High | Done | P0-3: sentence-level truncation for diagnosis patterns |
+| Post-generation regex: overreach/promise | High | Done | P0-3: sentence-level truncation for treatment promises |
+| Post-generation regex: challenge detection | Medium | Done | B2.3: strip confrontational language when challenge_allowed=False |
+| Post-generation regex: pathological attribution | High | Not started | Patterns like "brain distortion", "perception is not real" |
+| Post-generation regex: subjective-experience denial | High | Not started | Patterns like "what you see doesn't exist", "voices aren't real" |
+| Post-generation regex: over-pathologization | High | Not started | Patterns like "this is a hallucination", "this is a delusion" |
+| Graceful degradation: transition phrase after truncation | High | Not started | Insert safe transition at truncation point to maintain coherence |
+| Graceful degradation: context-aware fallback | High | Not started | Crisis scenario → crisis template; normal → grounding phrase |
+| Create risk regression dataset | High | In progress | 17 cases in cases.json; covers basic routing only |
+| Expand eval cases: early support scenarios | High | Not started | Psychosis, panic, grief, passive suicidal, somatic, burnout, etc. |
+| Build evaluation runner (routing layer) | High | In progress | Checks mode + risk_level; does not check reply text quality |
+| Build content-quality evaluation (regex layer) | High | Not started | Assert reply text passes all red-line regex + structure + language |
+| Build content-quality evaluation (LLM-as-judge) | Medium | Not started | Different model scores attribution, safety, empathy, action |
+| Add Langfuse tracing | Medium | In progress | Top-level span added; per-node spans not yet instrumented |
+| Add Langfuse per-node spans | Medium | Not started | risk_classifier, intent_router, response_generator, safety_reviewer |
+| Add flush_langfuse on request end | Medium | Not started | Ensure trace data is flushed at end of request lifecycle |
 | Create release safety checklist | High | Not started | Required before launch |
 
 ### 5. Product Logic
@@ -122,10 +135,23 @@
 - [x] Add Alembic migration setup
 - [x] Replace scaffolded response generator with LLM-backed adapter
 - [x] Add persistent session/message storage
-- [x] Add risk evaluation dataset and runner
-- [ ] Add richer memory retrieval
-- [ ] Add full Langfuse trace instrumentation on request lifecycle
-- [ ] Add vector memory and knowledge retrieval layer
+- [x] Add risk evaluation dataset and runner (routing layer)
+- [x] Post-generation regex: diagnosis language + overreach + challenge detection
+- [x] Language consistency: expected_language detection + enforcement
+- [x] Questionnaire answer parsing enhancement (zero-width, BOM, invisible chars)
+- [x] Docker deployment with Alibaba Cloud mirror sources
+- [ ] Post-generation regex: pathological attribution red lines
+- [ ] Post-generation regex: subjective-experience denial red lines
+- [ ] Post-generation regex: over-pathologization red lines
+- [ ] Graceful degradation: transition phrase + context-aware fallback
+- [ ] Expand eval cases: early psychological support scenarios
+- [ ] Content-quality evaluation: regex layer (red-line + structure + language)
+- [ ] Content-quality evaluation: LLM-as-judge layer
+- [ ] Create release safety checklist document
+- [ ] Add Langfuse per-node spans + flush on request end
+- [ ] Clean up redundant root-level index.html
+- [ ] Add richer memory retrieval (P2, not blocking for early support MVP)
+- [ ] Add vector memory and knowledge retrieval layer (P2)
 
 ## Progress Log
 
@@ -147,3 +173,13 @@
 - Added Alembic baseline migration files
 - Added LLM-backed response generation with safe fallback
 - Added API and risk evaluation tests
+
+### 2026-08-22 (dev branch, PR #8/#9/#10/#13)
+
+- P0 safety fixes: fallback bug fix, Alembic migration, diagnosis interception, crisis keyword alignment, mode-based temperature, safety_reviewer diagnosis/overreach detection, high-risk LLM with crisis prompt
+- B-line AI enhancement: cross-turn contradiction detection, challenge review, exercise refusal tracking, negation proximity, exhaustion subtypes, focus keywords, structured fallback
+- D-line: P0 test coverage, CI/lint integration, Docker mirror source optimization
+- Language consistency: expected_language detection from conversation history, _enforce_language tolerance fix, questionnaire answer parsing enhancement
+- Docker deployment: Alibaba Cloud mirrors, port 9958, docker-compose with image loading
+- Updated PROJECT_PLAN.md: added post-generation regex red lines, graceful degradation, three-layer evaluation architecture, Phase 2.5 safety hardening
+- Updated PROJECT_PROGRESS.md: expanded workstream 4, updated next actions with completed and new items
