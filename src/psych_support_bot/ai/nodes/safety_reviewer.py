@@ -8,6 +8,8 @@ from psych_support_bot.ai.prompts.templates import (
     build_role_prompt,
     build_system_guidance,
 )
+from psych_support_bot.ai.safety.crisis import build_crisis_reply
+from psych_support_bot.ai.schemas.messages import RiskResult
 from psych_support_bot.ai.schemas.state import GraphState
 
 logger = logging.getLogger(__name__)
@@ -134,24 +136,139 @@ CHALLENGE_PATTERNS: list[str] = [
     r"让我(质询|挑战|反问|质疑)一下",
 ]
 
+# ---------------------------------------------------------------------------
+# P0-1: Pathological attribution patterns
+# LLM attributes the user's experience to a pathological brain/perception
+# system malfunction.  These must NOT match normal psychoeducation that
+# explains mechanisms without pathologising (e.g. "anxiety makes sensations
+# feel stronger" is fine; "your brain is distorting your perception" is not).
+# ---------------------------------------------------------------------------
+PATHOLOGICAL_ATTRIBUTION_PATTERNS: list[str] = [
+    # English — brain/system pathology
+    r"your (brain|mind|nervous system|perception system) (is|are) (distorting|deceiving|tricking|malfunctioning|broken|faulty|misfiring)",
+    r"your (brain|mind) (is )?(playing tricks|playing games|messing|tricking) (on|with) you",
+    r"your (brain|mind) (is )?(sending|firing) (false|wrong|incorrect) (signals|alarms|messages)",
+    # English — perception unreality attributed to pathology
+    r"your (perception|perceptions|senses) (is|are) (not )?(reliable|trustworthy|accurate|functioning properly)",
+    r"your (perception|senses) (is|are) (distorted|impaired|corrupted|warped)",
+    # Chinese — brain/system pathology
+    r"你的(大脑|神经系统|感知系统|精神系统)(在)?(扭曲|欺骗|篡改|错乱|出错|故障|失灵|紊乱)",
+    r"你的(大脑|脑部)(在)?(欺骗|误导|捉弄|戏弄)你",
+    r"你的(大脑|脑部)(在)?发出(错误|虚假)的(信号|警报)",
+    r"你的(大脑|脑部)(在)?(误报|误警)",
+    # Chinese — perception unreality attributed to pathology
+    r"你的(感知|感觉|感知系统)(是|处于)?(扭曲|失真|不可靠|不准确|不正常|出了问题|有缺陷)",
+]
+
+# ---------------------------------------------------------------------------
+# P0-2: Subjective-experience denial patterns
+# LLM directly denies the reality/existence of what the user reports
+# experiencing (seeing, hearing, feeling).  Must NOT match statements that
+# acknowledge subjective reality while explaining its relationship to
+# external reality (e.g. "these feelings are real to you" is fine).
+# ---------------------------------------------------------------------------
+EXPERIENCE_DENIAL_PATTERNS: list[str] = [
+    # English — direct denial of perception
+    r"what you (see|hear|feel|sense) (is|isn't|is not|are|aren't|are not) (real|true|realistic|actually (there|happening))",
+    r"(those|these|the) (voices|sounds|images|visions|things) (you (hear|see|describe) )?(are|is) (not|n't) (real|true|actually (there|happening))",
+    r"(it|that|this)(is|'s| is)( just| nothing but)? your (imagination|fantasy|delusion|mind playing tricks)",
+    r"(nothing|nobody|no one|there)('s| is| are)? (really|actually) (there|watching|following|happening)",
+    # English — denial of feeling reality
+    r"your (feelings|emotions|reactions) (are|aren't|are not) (real|valid|justified|grounded)",
+    # Chinese — direct denial of perception
+    r"你(看到|听到|感觉到|感知到)的(东西|事物|声音|画面|感觉)(不是|并不|根本不)(真实的|真的|存在的|现实的)",
+    r"(那些|这些)(声音|画面|东西|事物)(不是|并不|根本不)(真实的|真的|存在的)",
+    r"(那|这)(只是|不过是|无非是)你的(想象|幻想|臆想|幻觉|心理作用)",
+    r"(没有|根本没有|其实没有)(人|谁)(在)(看着|监视|跟踪|跟着)你",
+    r"(没有|根本没有|其实没有)(什么|什么东西)(真的|真的在)(发生|存在)",
+    # Chinese — denial of feeling reality
+    r"你的(感受|情绪|反应)(不是|并不|根本不)(真实的|真的|合理的|有依据的)",
+]
+
+# ---------------------------------------------------------------------------
+# P0-3: Over-pathologization label patterns
+# LLM uses clinical diagnostic labels to categorise the user's experience
+# (e.g. "this is a hallucination", "what you're describing is a delusion").
+# Must NOT match when the LLM quotes the user's own words or asks clarifying
+# questions about experiences without labelling them.
+# ---------------------------------------------------------------------------
+OVER_PATHOLOGIZATION_PATTERNS: list[str] = [
+    # English — labelling experiences as clinical phenomena
+    r"(this|that|what you('re| are)( describing| experiencing)|these (experiences|symptoms)) (is|are|sounds? like|seems? like|appears? to be) (a |an )?(hallucination|delusion|psychotic symptom|psychosis|dissociation|dissociative episode|paranoia|paranoid (delusion|belief)|psychotic break|mental break)",
+    r"you('re| are) (experiencing|having|suffering from) (a |an )?(hallucination|delusion|psychotic episode|dissociative episode|psychotic break)",
+    r"this (is|sounds like|seems like) (a |an )?(psychotic|psychiatric|mental) (symptom|disorder|condition|episode|break)",
+    # Chinese — labelling experiences as clinical phenomena
+    r"(这|那|你描述的|你经历的|你体验到的)(是|属于|像是|看起来是|听起来是|似乎是)(幻觉|妄想|精神病性症状|精神分裂症状|解离|解离症状|偏执|偏执妄想|精神崩溃)",
+    r"你(正在|在)(经历|产生|出现)(幻觉|妄想|精神病性症状|解离症状|精神崩溃)",
+    r"这(是|属于|像是|看起来是)(精神病性|精神科|心理疾病)的(症状|障碍|表现|发作)",
+]
+
 _CHALLENGE_REGEX = [re.compile(p, re.IGNORECASE) for p in CHALLENGE_PATTERNS]
 
 _DIAGNOSIS_REGEX = [re.compile(p, re.IGNORECASE) for p in DIAGNOSIS_PATTERNS]
 _OVERREACH_REGEX = [re.compile(p, re.IGNORECASE) for p in OVERREACH_PATTERNS]
+_PATHOLOGICAL_ATTRIBUTION_REGEX = [re.compile(p, re.IGNORECASE) for p in PATHOLOGICAL_ATTRIBUTION_PATTERNS]
+_EXPERIENCE_DENIAL_REGEX = [re.compile(p, re.IGNORECASE) for p in EXPERIENCE_DENIAL_PATTERNS]
+_OVER_PATHOLOGIZATION_REGEX = [re.compile(p, re.IGNORECASE) for p in OVER_PATHOLOGIZATION_PATTERNS]
+
+# All red-line regexes combined for unified sanitisation in _sanitize_text().
+_ALL_REDLINED_REGEX = (
+    _DIAGNOSIS_REGEX
+    + _OVERREACH_REGEX
+    + _PATHOLOGICAL_ATTRIBUTION_REGEX
+    + _EXPERIENCE_DENIAL_REGEX
+    + _OVER_PATHOLOGIZATION_REGEX
+)
+
+# Transition phrases inserted at truncation points to maintain coherence.
+_TRANSITION_ZH = "我听到你说的了，我们继续。"
+_TRANSITION_EN = "I hear what you're saying, let's continue."
+_TRANSITION_ZH_CRISIS = "我在这里陪着你，我们先关注你的安全。"
+_TRANSITION_EN_CRISIS = "I'm here with you, let's focus on your safety first."
+
+_ALL_TRANSITION_PHRASES = frozenset({
+    _TRANSITION_ZH, _TRANSITION_EN, _TRANSITION_ZH_CRISIS, _TRANSITION_EN_CRISIS,
+})
 
 
-def _sanitize_text(text: str) -> tuple[str, bool]:
-    """Remove diagnosis/overreach sentences from the reply.
+def _is_chinese(text: str) -> bool:
+    return any("\u4e00" <= char <= "\u9fff" for char in text)
+
+
+def _get_transition_phrase(needs_crisis_mode: bool, expected_language: str) -> str:
+    """Return a safe transition phrase for truncation points.
+
+    Selects by crisis/non-crisis context and expected language.
+    """
+    lang = expected_language or "en"
+    if needs_crisis_mode:
+        return _TRANSITION_ZH_CRISIS if lang == "zh" else _TRANSITION_EN_CRISIS
+    return _TRANSITION_ZH if lang == "zh" else _TRANSITION_EN
+
+
+def _sanitize_text(
+    text: str,
+    *,
+    needs_crisis_mode: bool = False,
+    expected_language: str = "",
+) -> tuple[str, bool]:
+    """Remove red-line violating sentences from the reply.
+
+    Checks against all red-line regex groups: diagnosis, overreach,
+    pathological attribution, experience denial, and over-pathologization.
 
     Returns (sanitized_text, was_modified).
-    Instead of replacing the entire reply, we split into sentences,
-    remove violating ones, and keep the rest.
+    Instead of replacing the entire reply, we split into lines,
+    remove violating ones, and insert a transition phrase at the
+    first truncation point to maintain coherence.
     """
     was_modified = False
 
-    # Split by newlines first, then by sentence-ending punctuation
     lines = text.split("\n")
     kept_lines: list[str] = []
+    # Track whether a transition phrase has already been inserted
+    # to avoid stacking multiple transitions.
+    transition_inserted = False
 
     for line in lines:
         line_stripped = line.strip()
@@ -159,38 +276,57 @@ def _sanitize_text(text: str) -> tuple[str, bool]:
             kept_lines.append(line)
             continue
 
-        # Check if the entire line matches any violation pattern
         is_violating = False
-        for pattern in _DIAGNOSIS_REGEX + _OVERREACH_REGEX:
+        for pattern in _ALL_REDLINED_REGEX:
             if pattern.search(line):
                 is_violating = True
                 logger.warning(
-                    "Safety reviewer: removing violating sentence: %s",
+                    "Safety reviewer: removing red-line violating sentence: %s",
                     line_stripped[:100],
                 )
                 break
 
         if is_violating:
             was_modified = True
-            # Skip this line, but keep structure by adding empty line
-            kept_lines.append("")
+            # Insert a transition phrase once at the first truncation point
+            # to avoid a jarring gap, then leave subsequent truncations blank.
+            if not transition_inserted:
+                transition = _get_transition_phrase(needs_crisis_mode, expected_language)
+                kept_lines.append(transition)
+                transition_inserted = True
+            else:
+                kept_lines.append("")
         else:
             kept_lines.append(line)
 
     sanitized = "\n".join(kept_lines).strip()
 
-    # If everything was removed, return a safe fallback
-    if not sanitized:
+    # If everything was removed (or only a transition phrase remains),
+    # signal that a full fallback is needed.
+    if not sanitized or (transition_inserted and sanitized in _ALL_TRANSITION_PHRASES):
         return "", True
 
     return sanitized, was_modified
 
 
-def _is_chinese(text: str) -> bool:
-    return any("\u4e00" <= char <= "\u9fff" for char in text)
+def _fallback_text(
+    user_message: str = "",
+    expected_language: str = "",
+    *,
+    risk_result: RiskResult | None = None,
+) -> str:
+    """Return a safe fallback reply.
 
-
-def _fallback_text(user_message: str, expected_language: str = "") -> str:
+    When *risk_result* indicates crisis mode, delegates to
+    build_crisis_reply() which includes hotline resources.
+    Otherwise returns a grounding phrase.
+    """
+    if risk_result is not None and risk_result.needs_crisis_mode:
+        return build_crisis_reply(
+            risk_result,
+            user_message=user_message,
+            expected_language=expected_language,
+        )
     lang = expected_language or ("zh" if _is_chinese(user_message) else "en")
     if lang == "zh":
         return "我在这里陪你。我们先把节奏放慢一点，只聚焦眼前一个小步骤。"
@@ -202,15 +338,22 @@ def _detect_challenge(text: str) -> bool:
     return any(p.search(text) for p in _CHALLENGE_REGEX)
 
 
-def _sanitize_challenge(text: str) -> tuple[str, bool]:
+def _sanitize_challenge(
+    text: str,
+    *,
+    needs_crisis_mode: bool = False,
+    expected_language: str = "",
+) -> tuple[str, bool]:
     """Remove challenge/confrontation sentences from the reply.
 
     Returns (sanitized_text, was_modified).
-    Removes sentences containing challenge patterns and keeps the rest.
+    Removes sentences containing challenge patterns, inserts a transition
+    phrase at the first truncation point, and keeps the rest.
     """
     was_modified = False
     lines = text.split("\n")
     kept_lines: list[str] = []
+    transition_inserted = False
 
     for line in lines:
         line_stripped = line.strip()
@@ -230,29 +373,44 @@ def _sanitize_challenge(text: str) -> tuple[str, bool]:
 
         if is_violating:
             was_modified = True
-            kept_lines.append("")
+            if not transition_inserted:
+                transition = _get_transition_phrase(needs_crisis_mode, expected_language)
+                kept_lines.append(transition)
+                transition_inserted = True
+            else:
+                kept_lines.append("")
         else:
             kept_lines.append(line)
 
     sanitized = "\n".join(kept_lines).strip()
-    if not sanitized:
+    if not sanitized or (transition_inserted and sanitized in _ALL_TRANSITION_PHRASES):
         return "", True
     return sanitized, was_modified
 
 
+def _detect_redline(text: str) -> bool:
+    """Check if the text contains any red-line violation.
+
+    Combines diagnosis, overreach, pathological attribution, experience
+    denial, and over-pathologization checks.
+    """
+    return any(p.search(text) for p in _ALL_REDLINED_REGEX)
+
+
 def review_response(state: GraphState) -> GraphState:
     text = state["generated_reply"].text
+    risk_result = state["risk_result"]
+    needs_crisis = risk_result.needs_crisis_mode
+    expected_lang = state.get("expected_language", "")
 
     # 1. Prompt leak detection (existing logic)
     has_leak = any(marker in text for marker in LEAK_MARKERS)
 
-    # 2. Diagnosis language detection (existing P0-3 logic)
-    has_diagnosis = any(p.search(text) for p in _DIAGNOSIS_REGEX)
+    # 2. Red-line detection: diagnosis, overreach, pathological attribution,
+    #    experience denial, over-pathologization (all unified).
+    has_redline = _detect_redline(text)
 
-    # 3. Overreach/promise detection (existing P0-3 logic)
-    has_overreach = any(p.search(text) for p in _OVERREACH_REGEX)
-
-    # 4. B2.3: Challenge review — when challenge_allowed is False, detect
+    # 3. B2.3: Challenge review — when challenge_allowed is False, detect
     #    and remove confrontational/probing language.
     challenge_allowed = state.get("challenge_allowed", False)
     has_challenge = False
@@ -261,18 +419,38 @@ def review_response(state: GraphState) -> GraphState:
 
     if has_leak:
         # Prompt leak: full replacement (safety critical)
-        text = _fallback_text(state["user_message"], state.get("expected_language", ""))
-    elif has_diagnosis or has_overreach:
-        # Diagnosis/overreach: truncate violating sentences, keep the rest
-        sanitized, was_modified = _sanitize_text(text)
-        text = sanitized if (was_modified and sanitized) else _fallback_text(state["user_message"], state.get("expected_language", ""))
+        text = _fallback_text(
+            state["user_message"],
+            expected_lang,
+            risk_result=risk_result,
+        )
+    elif has_redline:
+        # Red-line violations: truncate violating sentences, keep the rest
+        sanitized, was_modified = _sanitize_text(
+            text,
+            needs_crisis_mode=needs_crisis,
+            expected_language=expected_lang,
+        )
+        text = sanitized if (was_modified and sanitized) else _fallback_text(
+            state["user_message"],
+            expected_lang,
+            risk_result=risk_result,
+        )
     elif has_challenge:
         # Challenge in non-challenge-allowed context: remove challenge sentences
-        sanitized, was_modified = _sanitize_challenge(text)
-        text = sanitized if (was_modified and sanitized) else _fallback_text(state["user_message"], state.get("expected_language", ""))
+        sanitized, was_modified = _sanitize_challenge(
+            text,
+            needs_crisis_mode=needs_crisis,
+            expected_language=expected_lang,
+        )
+        text = sanitized if (was_modified and sanitized) else _fallback_text(
+            state["user_message"],
+            expected_lang,
+            risk_result=risk_result,
+        )
 
     state["generated_reply"].text = text
 
-    if state["risk_result"].needs_crisis_mode:
+    if needs_crisis:
         state["generated_reply"].includes_action_step = True
     return state
