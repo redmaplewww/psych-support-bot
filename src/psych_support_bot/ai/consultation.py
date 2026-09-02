@@ -1,7 +1,6 @@
 from psych_support_bot.ai.schemas.messages import ConversationMode, RiskLevel
 from psych_support_bot.ai.utils.text_matching import _contains_keyword, _normalize_text
 
-
 CONSULTATION_AGENTS: tuple[dict[str, str], ...] = (
     {
         "key": "cbt",
@@ -64,10 +63,7 @@ def consultation_agent_labels() -> list[str]:
 
 
 def consultation_agent_descriptions() -> str:
-    return "\n".join(
-        f"- {agent['label']} ({agent['school']}): {agent['focus']}."
-        for agent in CONSULTATION_AGENTS
-    )
+    return "\n".join(f"- {agent['label']} ({agent['school']}): {agent['focus']}." for agent in CONSULTATION_AGENTS)
 
 
 def should_trigger_multidisciplinary_consultation(
@@ -82,7 +78,4 @@ def should_trigger_multidisciplinary_consultation(
         return True
 
     normalized, compact = _normalize_text(user_message)
-    return any(
-        _contains_keyword(normalized, compact, keyword)
-        for keyword in CONSULT_TRIGGER_KEYWORDS
-    )
+    return any(_contains_keyword(normalized, compact, keyword) for keyword in CONSULT_TRIGGER_KEYWORDS)

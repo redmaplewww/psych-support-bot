@@ -1,6 +1,7 @@
+import re
+
 from psych_support_bot.ai.schemas.messages import RiskResult
 from psych_support_bot.ai.utils.text_matching import (
-    _contains_keyword,
     _match_any,
     _normalize_text,
 )
@@ -34,6 +35,14 @@ HIGH_RISK_KEYWORDS = [
     "上吊",
     "吞药",
     "服药过量",
+    # 被动死亡意愿的隐喻表述。Langfuse 巡检发现真实会话中
+    # "我只想逃离这个世界" 被判 low，漏掉了危机干预。
+    # 误报代价（多展示一次危机资源）远小于漏报代价，故纳入高危。
+    "逃离这个世界",
+    "离开这个世界",
+    "想去另一个世界",
+    "escape this world",
+    "leave this world",
 ]
 
 NEGATION_PATTERNS = [
@@ -82,7 +91,41 @@ ELEVATED_RISK_KEYWORDS = [
     "不配活着",
     "太累了",
     "撑不下去",
+    # Langfuse 巡检补充：真实会话中"我真的不行了"被判 low。
+    # 痛苦升级信号，但语义不足以触发危机模式，纳入 elevated。
+    "熬不住了",
+    "真的不行了",
+    "快不行了",
+    "can't take it anymore",
+    "cannot take it anymore",
 ]
+
+# C2: Regex patterns for Chinese elevated-risk synonym variants.
+# These cover expressions that pure substring matching in ELEVATED_RISK_KEYWORDS
+# would miss, such as 没意思 (vs 没意义), 没用, 没价值, 没动力, etc.
+# Each pattern is designed to match the core semantic concept without
+# false-positiving on unrelated uses (e.g. 不是这个意思 → NOT a match).
+ELEVATED_RISK_REGEX_PATTERNS_ZH: list[str] = [
+    # Worthlessness / meaninglessness: 没/无 + 意思/意义/价值/用/劲
+    r"没(有什么)?(意思|意义|价值|用|劲)",
+    r"无(意思|意义|价值|动力)",
+    r"没什么(意思|意义|价值|用|干劲|动力)",
+    r"活着没(意思|意义|价值|用)",
+    r"觉得没(意思|意义|价值|用)",
+    # Hopelessness variants
+    r"没(有什么)?希望",
+    r"没(有什么)?盼头",
+    r"看不到希望",
+    r"没(有什么)?动力",
+    r"没(有什么)?干劲",
+    # Exhaustion variants beyond 太累了
+    r"累(得)?不行",
+    r"累(到)?不想动",
+    r"身心俱疲",
+    r"精疲力竭",
+]
+
+_ELEVATED_RISK_REGEX_ZH = [re.compile(p, re.IGNORECASE) for p in ELEVATED_RISK_REGEX_PATTERNS_ZH]
 
 CRITICAL_RISK_KEYWORDS = [
     "tonight",
@@ -171,14 +214,118 @@ CHINESE_SUICIDE_DENIAL_PATTERNS = [
     "不想自杀",
 ]
 
+# B4.2: Negation proximity window.
+# A negation only counts if it appears within this many characters
+# of a high-risk keyword. This prevents false negatives where the
+# negation appears far from the risk word (e.g., "自杀...（500字）...我不想").
+NEGATION_WINDOW_CHARS = 20
+
+# Chinese negation words that, when appearing BEFORE a high-risk keyword,
+# indicate the user is denying or distancing from the risk.
+#
+# NOTE: deliberately excludes the bare characters 不 / 没 — they occur inside
+# the risk expressions themselves ("不想活了"), which turned every direct
+# declaration into a false "denial" via self-substring matching. Genuine
+# denials use compound forms already listed here (没想过 / 没有想 / 不再…).
+CHINESE_NEGATION_WORDS = [
+    "不再",
+    "不想",
+    "没想过",
+    "没有想",
+]
+
+# English negation words/phrases for proximity checking.
+ENGLISH_NEGATION_WORDS = [
+    "not",
+    "never",
+    "no longer",
+    "don't",
+    "dont",
+    "doesn't",
+    "without",
+    "no desire",
+]
+
+
+def _find_keyword_positions(text: str, keyword: str) -> list[int]:
+    """Find all starting positions of keyword in text (case-insensitive)."""
+    positions: list[int] = []
+    start = 0
+    lower_text = text.lower()
+    lower_kw = keyword.lower()
+    while True:
+        idx = lower_text.find(lower_kw, start)
+        if idx < 0:
+            break
+        positions.append(idx)
+        start = idx + len(lower_kw)
+    return positions
+
+
+def _has_negation_near_risk(text: str, risk_keywords: list[str]) -> bool:
+    """Check whether a risk keyword occurrence is locally denied.
+
+    Denials hug the phrase on either side:
+    - LEFT (prefix ends with the negation): “没想过死”, “don't … hurt”
+    - RIGHT (suffix starts with it, optional 但/现在/but filler):
+      “…自杀但现在不想了”, “…suicide but not anymore”
+
+    A bare 不 inside the expression itself (“不想活”) is part of the
+    declaration, never a denial — hence no substring scanning.
+    """
+    lower_text = text.lower()
+    all_negation_words = [w.lower() for w in CHINESE_NEGATION_WORDS + ENGLISH_NEGATION_WORDS]
+
+    def _denied_left(prefix: str) -> bool:
+        cleaned = prefix.rstrip("，。！？、,.!? ")
+        return any(cleaned.endswith(neg) for neg in all_negation_words)
+
+    def _denied_right(suffix: str) -> bool:
+        head = suffix.lstrip("，。！？、,.!? ")[:24]
+        if not head:
+            return False
+        if any(head.startswith(neg) for neg in CHINESE_NEGATION_WORDS):
+            return True
+        return bool(
+            re.match(r"^(?:但是|可是|而是|然后|现在)?\s*[^，。！？]{0,3}?[不没]", head)
+            or re.search(r"^(?:but\s+)?(?:not\s+anymore|no longer|not)\b", head)
+        )
+
+    for kw in risk_keywords:
+        kw_lower = kw.lower()
+        kw_positions = _find_keyword_positions(lower_text, kw_lower)
+        if not kw_positions:
+            continue
+
+        for kw_pos in kw_positions:
+            window_start = max(0, kw_pos - NEGATION_WINDOW_CHARS)
+            prefix = lower_text[window_start:kw_pos]
+            suffix_start = min(len(lower_text), kw_pos + len(kw_lower))
+            suffix = lower_text[suffix_start : suffix_start + NEGATION_WINDOW_CHARS]
+
+            if _denied_left(prefix) or _denied_right(suffix):
+                return True
+
+    return False
+
 
 def _has_negation(text: str) -> bool:
+    """Check for negation patterns.
+
+    B4.2: Enhanced with proximity window detection.
+    A negation is only valid if it appears close to a high-risk keyword.
+    Falls back to pattern matching for explicit denial phrases.
+    """
     normalized, compact = _normalize_text(text)
-    if _match_any(normalized, compact, NEGATION_PATTERNS):
+
+    # Check explicit denial patterns first (these are self-contained phrases)
+    if _match_any(normalized, compact, NEGATION_PATTERNS) or _match_any(
+        normalized, compact, CHINESE_SUICIDE_DENIAL_PATTERNS
+    ):
         return True
-    if _match_any(normalized, compact, CHINESE_SUICIDE_DENIAL_PATTERNS):
-        return True
-    return False
+
+    # B4.2: Check negation proximity to high-risk keywords
+    return _has_negation_near_risk(normalized, HIGH_RISK_KEYWORDS)
 
 
 IMMINENT_MEANS_PATTERNS = [
@@ -199,11 +346,7 @@ def classify_message_risk(text: str) -> RiskResult:
     has_imminent_means = _match_any(normalized, compact, IMMINENT_MEANS_PATTERNS)
     has_negation = _has_negation(text)
 
-    if (
-        has_direct_critical
-        or has_imminent_means
-        or (has_high_risk and has_critical and not has_negation)
-    ):
+    if has_direct_critical or has_imminent_means or (has_high_risk and has_critical and not has_negation):
         return RiskResult(
             risk_level="critical",
             risk_types=["safety", "immediate_danger"],
@@ -238,7 +381,9 @@ def classify_message_risk(text: str) -> RiskResult:
             needs_crisis_mode=True,
             reason="High-risk safety language detected.",
         )
-    if _match_any(normalized, compact, ELEVATED_RISK_KEYWORDS):
+    if _match_any(normalized, compact, ELEVATED_RISK_KEYWORDS) or any(
+        p.search(normalized) for p in _ELEVATED_RISK_REGEX_ZH
+    ):
         return RiskResult(
             risk_level="elevated",
             risk_types=["distress"],

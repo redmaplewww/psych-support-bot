@@ -7,9 +7,7 @@ import unicodedata
 def _normalize_text(text: str) -> tuple[str, str]:
     normalized = unicodedata.normalize("NFKC", text).casefold()
     collapsed = " ".join(normalized.split())
-    compact = "".join(
-        ch for ch in collapsed if ch.isalnum() or "\u4e00" <= ch <= "\u9fff"
-    )
+    compact = "".join(ch for ch in collapsed if ch.isalnum() or "\u4e00" <= ch <= "\u9fff")
     return collapsed, compact
 
 
@@ -25,9 +23,7 @@ def _contains_keyword(text: str, compact_text: str, keyword: str) -> bool:
 
     if len(compact_keyword) <= 3:
         pattern = re.escape(normalized_keyword)
-        return bool(
-            re.search(r"(?<![a-z])\b" + pattern + r"\b(?![a-z])", text, re.IGNORECASE)
-        )
+        return bool(re.search(r"(?<![a-z])\b" + pattern + r"\b(?![a-z])", text, re.IGNORECASE))
 
     if normalized_keyword in text:
         return True

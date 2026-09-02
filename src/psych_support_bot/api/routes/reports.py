@@ -13,9 +13,7 @@ router = APIRouter(prefix="/v1/reports", tags=["reports"])
 
 
 @router.get("/weekly", response_model=WeeklyReportResponse)
-def get_weekly_report(
-    user_id: str, session: Session = Depends(get_db_session)
-) -> WeeklyReportResponse:
+def get_weekly_report(user_id: str, session: Session = Depends(get_db_session)) -> WeeklyReportResponse:
     checkins = get_recent_checkins(session, user_id)
     summary = build_weekly_summary(checkins)
     save_weekly_report(session, user_id, summary)

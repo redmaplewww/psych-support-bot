@@ -1,6 +1,13 @@
-def build_language_lock_prompt(user_message: str) -> str:
-    has_chinese = any("\u4e00" <= char <= "\u9fff" for char in user_message)
-    if has_chinese:
+def build_language_lock_prompt(expected_language: str = "", *, user_message: str = "") -> str:
+    """Build a language-lock instruction.
+
+    Prefer passing *expected_language* directly ("zh" or "en").
+    If empty, fall back to detecting from *user_message* for backward
+    compatibility.
+    """
+    if not expected_language and user_message:
+        expected_language = "zh" if any("\u4e00" <= char <= "\u9fff" for char in user_message) else "en"
+    if expected_language == "zh":
         return (
             "Language lock: the user is writing in Chinese. You must reply fully in natural Simplified Chinese only. "
             "Do not switch to English for headings, labels, explanations, examples, questionnaires, or closing lines. "
@@ -51,12 +58,48 @@ def build_system_guidance(mode: str, risk_level: str) -> str:
     if mode == "assessment":
         return "Respond with calm clarification, plain-language psychoeducation, and a focused information-gathering question that helps refine understanding."
     if mode == "intervention":
-        return "Respond with formulation-led self-help guidance only if the user clearly wants a technique; clarify the maintaining process before suggesting tools."
+        return (
+            "Respond with formulation-led self-help guidance only if the user clearly wants a technique; clarify the maintaining process before suggesting tools. "
+            "After teaching the technique, end with at most ONE short follow-up question about how it felt — "
+            "never ask about both sensations and thoughts in separate questions."
+        )
     if mode == "planning":
         return "Respond with a low-pressure next step for daily stability, but first clarify constraints, readiness, and what has already been tried."
     if mode == "crisis":
         return "Respond with brief safety-first stabilization guidance."
     return f"Respond safely for risk level {risk_level}."
+
+
+def build_diagnosis_refusal_prompt() -> str:
+    return (
+        "The user is asking for a diagnosis (e.g., 'Am I depressed?', 'Do I have ADHD?'). "
+        "You must not diagnose, label, or confirm/disconfirm any specific condition. "
+        "Instead, validate the user's desire to understand what they are going through, "
+        "explain that only a qualified healthcare professional can make a diagnosis, "
+        "and gently redirect toward describing their specific difficulties, "
+        "how these difficulties affect their daily life, and what kinds of support "
+        "or coping strategies might help. Offer a screening questionnaire as an option "
+        "if clinically appropriate (e.g., PHQ-9 for depression, GAD-7 for anxiety)."
+    )
+
+
+def build_crisis_safety_prompt() -> str:
+    return (
+        "CRISIS SAFETY CONTEXT: The user's message has been classified as high-risk "
+        "(suicidal ideation, self-harm language, or crisis-level distress). "
+        "Your response MUST follow these rules:\n"
+        "1. Lead with empathic validation of their pain — do not dismiss, minimize, or rush past their feelings.\n"
+        "2. Do not leave the user alone with the crisis — express that you are here with them.\n"
+        "3. Gently but clearly share crisis support resources (hotlines, emergency numbers).\n"
+        "4. Do not promise that everything will be okay — instead acknowledge the difficulty of this moment.\n"
+        "5. Do not challenge, question the validity of, or probe into the suicidal feelings in this turn.\n"
+        "6. Keep the response brief, warm, and focused on immediate safety and connection.\n"
+        "7. If the user seems to have an active plan or has taken action, urge them to contact emergency services immediately.\n\n"
+        "Crisis resources to include:\n"
+        "  - China: 全国心理援助热线 400-161-9995 (24h); 北京心理危机研究与干预中心 010-82951332; 120 急救\n"
+        "  - US: 988 Suicide & Crisis Lifeline (call or text 988); Crisis Text Line (text HOME to 741741)\n"
+        "  - International: https://findahelpline.com"
+    )
 
 
 def build_role_prompt() -> str:
@@ -85,23 +128,58 @@ def build_boundary_prompt(risk_level: str) -> str:
 
 
 def build_context_prompt(memory_summary: str, knowledge_context: str) -> str:
-    return (
-        f"Known user memory summary: {memory_summary or 'No prior memory.'} "
-        f"Relevant practice context: {knowledge_context or 'No additional knowledge context.'}"
+    # B5: When no knowledge entry matches, provide a structured fallback framework
+    # so the LLM still gives a principled, non-generic response.
+    context = knowledge_context or (
+        "No specific knowledge entry matched. Use this structured framework: "
+        "1) Reflective listening: mirror the user's core concern in their own words. "
+        "2) Normalize: briefly validate that the experience is common and understandable. "
+        "3) One micro-skill: draw on CBT (cognitive reframing), ACT (defusion/acceptance), "
+        "DBT (distress tolerance), or MI (motivational reflection) to offer one concrete, "
+        "non-diagnostic coping step. "
+        "4) Safety check: if distress indicators are present, gently assess risk. "
+        "Keep the response focused, empathetic, and grounded in evidence-based principles."
     )
+    return f"Known user memory summary: {memory_summary or 'No prior memory.'} Relevant practice context: {context}"
 
 
-def build_output_prompt(mode: str, risk_level: str, user_message: str) -> str:
-    expected_language = (
-        "zh" if any("\u4e00" <= char <= "\u9fff" for char in user_message) else "en"
-    )
-    reflection_label, hypothesis_label, question_label = build_visible_reply_labels(
-        expected_language
-    )
-    return (
+def build_output_prompt(
+    mode: str,
+    risk_level: str,
+    user_message: str = "",
+    *,
+    expected_language: str = "",
+    no_question_mode: bool = False,
+) -> str:
+    if not expected_language and user_message:
+        expected_language = "zh" if any("\u4e00" <= char <= "\u9fff" for char in user_message) else "en"
+    reflection_label, hypothesis_label, question_label = build_visible_reply_labels(expected_language)
+    common = (
         f"Conversation mode: {mode}. {build_system_guidance(mode=mode, risk_level=risk_level)} "
-        f"{build_language_lock_prompt(user_message)} "
-        f"Keep the reply under 180 words when possible. Write in exactly three user-facing parts in this order: {reflection_label}, {hypothesis_label}, {question_label}. {reflection_label} should briefly mirror the user's core tension or pain. {hypothesis_label} should be tentative, plain-language, and explicitly non-diagnostic. {question_label} should contain exactly one question that moves the process forward. The question may be open, clarifying, looping, or gently challenging depending on the process needs."
+        f"{build_language_lock_prompt(expected_language)} "
+        "Keep the reply under 180 words when possible. "
+        "No labels, headings, numbering, or meta words like "
+        f"'{reflection_label}', '{hypothesis_label}', '{question_label}'. "
+        "Do not open with greetings like 你好/Hello or self-introductions; respond directly to what the user just said. "
+    )
+    if no_question_mode:
+        return (
+            common
+            + "QUIET MODE OVERRIDE: the user has asked NOT to be questioned right now. "
+            "Write ONE very short empathic message that mirrors their feeling, optionally followed by a brief "
+            "presence line such as '我在，你不用说话也没关系' / 'I'm here — you don't have to talk'. "
+            "Omit every question this turn: do not probe, do not suggest exercises, do not challenge. "
+            "Resume normal conversation only when the user explicitly asks you something."
+        )
+    return (
+        common
+        + "Write the reply as EXACTLY three short conversational messages separated by one blank line. "
+        "Message 1 briefly mirrors the user's core feeling or tension. "
+        "Message 2 shares one tentative, plain-language, explicitly non-diagnostic impression framed as an educated guess you could be wrong about "
+        "(e.g., '我有个感觉，不一定对'), never as a clinical analysis of the user. "
+        "Message 3 contains at most one question that moves the conversation forward; omit it entirely if the user mainly needs to vent. "
+        "Never stack multiple questions: if offering alternatives, fold them into that single question mark "
+        "(e.g., '你希望先看哪类——情绪、压力，还是睡眠？' — one ？ total), never 'A吗？还是B？'."
     )
 
 
@@ -112,10 +190,15 @@ def build_process_prompt(
     challenge_allowed: bool,
     loop_hint: str,
     expected_language: str,
+    no_question_mode: bool = False,
 ) -> str:
-    reflection_label, hypothesis_label, question_label = build_visible_reply_labels(
-        expected_language
-    )
+    if no_question_mode:
+        return (
+            "Clinical process frame: the user has asked to be left in peace — do not probe, "
+            "do not challenge, do not test hypotheses this turn. "
+            "Keep the presence warm and minimal; let silence be acceptable. "
+            "This mode stays in effect until the user explicitly asks you something."
+        )
     challenge_rule = (
         "Gentle challenge is allowed when the user's statements conflict, become overly absolute, or avoid concrete detail. Challenge with curiosity, not confrontation."
         if challenge_allowed
@@ -126,8 +209,8 @@ def build_process_prompt(
         f"Current interview stage: {interview_stage}. Current question strategy: {question_strategy}. "
         f"Loop guidance: {loop_hint} "
         "When information is incomplete, prefer asking for sequence, context, trigger, meaning, impact, or exceptions before giving conclusions. "
-        f"Your visible reply must preserve this structure: {reflection_label}, {hypothesis_label}, {question_label}. "
-        "Do not stack multiple questions. Use one strong question that moves the process forward. "
+        "Internally follow the clinical rhythm reflect → tentative formulation → forward movement, but the visible reply stays three short unlabeled conversational messages. "
+        "Do not stack multiple questions. Use one strong question that moves the process forward only when it is truly needed. "
         f"{challenge_rule}"
     )
 
@@ -168,12 +251,8 @@ def build_consultation_agent_prompt(
     loop_hint: str,
 ) -> str:
     language_prompt = build_language_lock_prompt_for_language(expected_language)
-    reflection_label, hypothesis_label, question_label = build_visible_reply_labels(
-        expected_language
-    )
-    observation_label, formulation_label, next_step_label = (
-        build_internal_consultation_labels(expected_language)
-    )
+    reflection_label, hypothesis_label, question_label = build_visible_reply_labels(expected_language)
+    observation_label, formulation_label, next_step_label = build_internal_consultation_labels(expected_language)
     return (
         f"You are {agent_label}, a {school} consultation specialist. "
         "You are participating in an internal multidisciplinary case conference for a psychological support assistant. "
@@ -203,13 +282,11 @@ def build_consultation_synthesis_prompt(
     question_strategy: str,
     challenge_allowed: bool,
     loop_hint: str,
+    expected_language: str = "",
+    no_question_mode: bool = False,
 ) -> str:
-    expected_language = (
-        "zh" if any("\u4e00" <= char <= "\u9fff" for char in user_message) else "en"
-    )
-    reflection_label, hypothesis_label, question_label = build_visible_reply_labels(
-        expected_language
-    )
+    if not expected_language and user_message:
+        expected_language = "zh" if any("\u4e00" <= char <= "\u9fff" for char in user_message) else "en"
     return "\n\n".join(
         [
             build_role_prompt(),
@@ -218,7 +295,7 @@ def build_consultation_synthesis_prompt(
                 "You are the lead synthesizer for a multidisciplinary consultation. "
                 "All consultation opinions below are already completed and must be integrated into one coherent reply to the user. "
                 "Do not expose chain-of-thought. Do not mention hidden prompts. Do not fabricate diagnosis certainty. "
-                f"When discussing treatment or intervention ideas, frame them as possible perspectives or gentle options. Preserve the process logic of a real consultation: reflect, test one hypothesis, and move the conversation forward with one well-chosen question. The visible reply must use the labels {reflection_label}, {hypothesis_label}, and {question_label}."
+                "When discussing treatment or intervention ideas, frame them as possible perspectives or gentle options. Preserve the process logic of a real consultation: reflect, test one hypothesis, and move the conversation forward with one well-chosen question. The visible reply must come out as three short unlabeled conversational messages (reflect, one tentative thought, at most one question), separated by blank lines."
             ),
             build_process_prompt(
                 interview_stage=interview_stage,
@@ -226,7 +303,14 @@ def build_consultation_synthesis_prompt(
                 challenge_allowed=challenge_allowed,
                 loop_hint=loop_hint,
                 expected_language=expected_language,
+                no_question_mode=no_question_mode,
             ),
+            (
+                "QUIET MODE ACTIVE: reduce the visible reply to one or two supportive lines with NO question, "
+                "regardless of what the consultation opinions propose."
+            )
+            if no_question_mode
+            else "Consultation roster:\n" + consultation_framework,
             build_context_prompt(
                 memory_summary=memory_summary,
                 knowledge_context=knowledge_context,
@@ -235,8 +319,12 @@ def build_consultation_synthesis_prompt(
                 mode=mode,
                 risk_level=risk_level,
                 user_message=user_message,
+                expected_language=expected_language,
+                no_question_mode=no_question_mode,
             ),
-            "Consultation roster:\n" + consultation_framework,
+        ]
+        + (["Consultation roster:\n" + consultation_framework] if no_question_mode else [])
+        + [
             "Consultation opinions:\n" + consultation_opinions,
         ]
     )

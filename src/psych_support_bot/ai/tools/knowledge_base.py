@@ -3,7 +3,6 @@ from psych_support_bot.ai.knowledge.index import (
     retrieve_knowledge_entries,
 )
 
-
 KNOWLEDGE_SNIPPETS = {
     "support": [
         "Validate emotion before offering suggestions.",
@@ -43,14 +42,10 @@ def _render_entry(entry_id: str, title: str, summary: str, action_hint: str) -> 
 def _grouped_entries_text(entries: list) -> list[str]:
     learning_entries = [entry for entry in entries if entry.source == "active_learning"]
     psychoeducation_entries = [
-        entry
-        for entry in entries
-        if entry.source in {"psychoeducation", "foundation", "active_learning"}
+        entry for entry in entries if entry.source in {"psychoeducation", "foundation", "active_learning"}
     ]
     grounded_entries = [
-        entry
-        for entry in entries
-        if entry.source not in {"active_learning", "psychoeducation", "foundation"}
+        entry for entry in entries if entry.source not in {"active_learning", "psychoeducation", "foundation"}
     ]
     sections: list[str] = []
 

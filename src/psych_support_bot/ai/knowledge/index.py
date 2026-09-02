@@ -1,7 +1,6 @@
 """Structured index and retrieval helpers for psychological knowledge."""
 
 from dataclasses import dataclass
-from pathlib import Path
 
 from psych_support_bot.ai.knowledge.act import ACT_EXERCISES
 from psych_support_bot.ai.knowledge.cbt import CBT_EXERCISES, CBT_INTERVENTION_GUIDES
@@ -18,7 +17,6 @@ from psych_support_bot.knowledge_ingestion import (
     load_all_corpora,
     load_learning_notes,
 )
-
 
 TOPIC_KEYWORDS = {
     "anxiety": [
@@ -140,6 +138,23 @@ TOPIC_KEYWORDS = {
         "逃避",
         "开始不了",
         "卡住了",
+        # B1: focus/concentration keywords merged into procrastination (knowledge freeze)
+        "走神",
+        "分心",
+        "无法集中",
+        "看不进书",
+        "坐不住",
+        "concentration",
+        "distracted",
+        "can't focus",
+        "不专注",
+        "注意力散",
+        # B1: Move behavioral-execution focus keywords to procrastination
+        "注意力不集中",
+        "专注不了",
+        "看不进去",
+        "注意力涣散",
+        "无法专心",
     ],
     "rumination": [
         "ruminating",
@@ -207,6 +222,13 @@ TOPIC_KEYWORDS = {
         "提不起劲",
         "停摆",
         "冻结住了",
+        # B1: Focus keywords that are motivation-related (internal drive)
+        "没干劲",
+        "不想做",
+        "缺乏动力",
+        "can't concentrate",
+        "can't pay attention",
+        "mind wandering",
     ],
     "social_anxiety": [
         "social anxiety",
@@ -420,8 +442,8 @@ def build_knowledge_index() -> list[KnowledgeEntry]:
     }
 
     for exercise_id, exercise in CBT_EXERCISES.items():
-        title = getattr(exercise, "name")
-        description = getattr(exercise, "description")
+        title = exercise.name
+        description = exercise.description
         entries.append(
             _entry(
                 entry_id=f"cbt-exercise:{exercise_id}",
@@ -429,9 +451,7 @@ def build_knowledge_index() -> list[KnowledgeEntry]:
                 source="cbt_exercise",
                 topics=tuple(exercise_topic_map.get(exercise_id, ("stress",))),
                 modes=("intervention", "planning"),
-                keywords=_topic_keywords(
-                    tuple(exercise_topic_map.get(exercise_id, ("stress",)))
-                ),
+                keywords=_topic_keywords(tuple(exercise_topic_map.get(exercise_id, ("stress",)))),
                 content=description,
                 action_hint=f"Exercise tag: cbt_{exercise_id}",
             )
@@ -445,9 +465,7 @@ def build_knowledge_index() -> list[KnowledgeEntry]:
                 source="act_exercise",
                 topics=tuple(exercise_topic_map.get(exercise_id, ("stress",))),
                 modes=("intervention", "planning"),
-                keywords=_topic_keywords(
-                    tuple(exercise_topic_map.get(exercise_id, ("stress",)))
-                ),
+                keywords=_topic_keywords(tuple(exercise_topic_map.get(exercise_id, ("stress",)))),
                 content=str(exercise["description"]),
                 action_hint=f"Exercise tag: act_{exercise_id}",
             )
@@ -461,9 +479,7 @@ def build_knowledge_index() -> list[KnowledgeEntry]:
                 source="dbt_exercise",
                 topics=tuple(exercise_topic_map.get(exercise_id, ("stress",))),
                 modes=("intervention", "planning", "crisis"),
-                keywords=_topic_keywords(
-                    tuple(exercise_topic_map.get(exercise_id, ("stress",)))
-                ),
+                keywords=_topic_keywords(tuple(exercise_topic_map.get(exercise_id, ("stress",)))),
                 content=str(exercise["description"]),
                 action_hint=f"Exercise tag: dbt_{exercise_id}",
             )
@@ -567,9 +583,7 @@ def build_knowledge_index() -> list[KnowledgeEntry]:
                 source=f"external_{chunk.publisher.lower()}",
                 topics=chunk.topics,
                 modes=chunk.modes,
-                keywords=tuple(
-                    dict.fromkeys([*chunk.keywords, *_topic_keywords(chunk.topics)])
-                ),
+                keywords=tuple(dict.fromkeys([*chunk.keywords, *_topic_keywords(chunk.topics)])),
                 content=chunk.content,
                 action_hint=" | ".join(details),
             )
@@ -593,9 +607,7 @@ def build_knowledge_index() -> list[KnowledgeEntry]:
                 source="active_learning",
                 topics=note.topics,
                 modes=note.modes,
-                keywords=tuple(
-                    dict.fromkeys([*note.keywords, *_topic_keywords(note.topics)])
-                ),
+                keywords=tuple(dict.fromkeys([*note.keywords, *_topic_keywords(note.topics)])),
                 content=note.summary,
                 action_hint=" | ".join(details),
             )
@@ -605,7 +617,6 @@ def build_knowledge_index() -> list[KnowledgeEntry]:
 
 
 def _knowledge_index_signature() -> tuple[tuple[str, bool, int, int], ...]:
-    from psych_support_bot.knowledge_ingestion import knowledge_data_dir
 
     data_dir = knowledge_data_dir()
     corpus_files = (
@@ -657,9 +668,7 @@ def retrieve_knowledge_entries(
     for entry in get_knowledge_index():
         score = 0
         topical_relevance = 0
-        if mode in entry.modes:
-            score += 4
-        elif mode == "crisis" and entry.source == "crisis":
+        if (mode in entry.modes) or (mode == "crisis" and entry.source == "crisis"):
             score += 4
 
         if entry.source == "psychoeducation" and mode in {
@@ -710,18 +719,12 @@ def retrieve_knowledge_entries(
         topical_relevance += topic_hits
 
         keyword_hits = sum(
-            1
-            for keyword in entry.keywords
-            if keyword and _contains_keyword(normalized, compact, keyword)
+            1 for keyword in entry.keywords if keyword and _contains_keyword(normalized, compact, keyword)
         )
         score += min(keyword_hits, 4)
         topical_relevance += keyword_hits
 
-        title_hits = sum(
-            1
-            for token in _topic_keywords(entry.topics)
-            if _contains_keyword(normalized, compact, token)
-        )
+        title_hits = sum(1 for token in _topic_keywords(entry.topics) if _contains_keyword(normalized, compact, token))
         if title_hits and _contains_keyword(normalized, compact, entry.title):
             score += 3
             topical_relevance += 1
@@ -732,11 +735,7 @@ def retrieve_knowledge_entries(
             score += 3
         if mode == "crisis" and entry.entry_id == f"crisis:{risk_level}":
             score += 8
-        if (
-            entry.source == "crisis"
-            and mode != "crisis"
-            and risk_level not in {"high", "critical"}
-        ):
+        if entry.source == "crisis" and mode != "crisis" and risk_level not in {"high", "critical"}:
             score -= 6
         if topical_relevance == 0 and mode != "crisis" and entry.source != "crisis":
             continue

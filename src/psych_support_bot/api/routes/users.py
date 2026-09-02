@@ -32,13 +32,9 @@ def put_profile(
     return UserProfileResponse(
         user_id=profile.user_id,
         display_name=profile.display_name,
-        primary_concerns=[
-            item for item in profile.primary_concerns.split(", ") if item
-        ],
+        primary_concerns=[item for item in profile.primary_concerns.split(", ") if item],
         goals=[item for item in profile.goals.split(", ") if item],
-        support_preferences=[
-            item for item in profile.support_preferences.split(", ") if item
-        ],
+        support_preferences=[item for item in profile.support_preferences.split(", ") if item],
         risk_notes=profile.risk_notes,
         updated_at=profile.updated_at.isoformat(),
     )
@@ -55,13 +51,9 @@ def read_profile(
     return UserProfileResponse(
         user_id=profile.user_id,
         display_name=profile.display_name,
-        primary_concerns=[
-            item for item in profile.primary_concerns.split(", ") if item
-        ],
+        primary_concerns=[item for item in profile.primary_concerns.split(", ") if item],
         goals=[item for item in profile.goals.split(", ") if item],
-        support_preferences=[
-            item for item in profile.support_preferences.split(", ") if item
-        ],
+        support_preferences=[item for item in profile.support_preferences.split(", ") if item],
         risk_notes=profile.risk_notes,
         updated_at=profile.updated_at.isoformat(),
     )

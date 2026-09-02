@@ -1,11 +1,11 @@
 from celery import shared_task
 
-from psych_support_bot.infra.db.session import SessionLocal
+from psych_support_bot.domain.reports.service import build_weekly_summary
 from psych_support_bot.infra.db.repositories import (
     get_recent_checkins,
     save_weekly_report,
 )
-from psych_support_bot.domain.reports.service import build_weekly_summary
+from psych_support_bot.infra.db.session import SessionLocal
 
 
 @shared_task(name="psych_support_bot.generate_weekly_report")

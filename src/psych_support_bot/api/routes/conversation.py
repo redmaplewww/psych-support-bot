@@ -13,8 +13,8 @@ from psych_support_bot.infra.db.repositories import (
     get_user_risk_events,
     get_user_sessions,
 )
-from psych_support_bot.services.conversation import conversation_service
 from psych_support_bot.infra.db.session import get_db_session
+from psych_support_bot.services.conversation import conversation_service
 
 router = APIRouter(prefix="/v1/conversations", tags=["conversations"])
 
