@@ -232,7 +232,8 @@
       display: inline-block;
       max-width: 82%;
       padding: 10px 14px;
-      border: 1px solid var(--rule);      background: #fff;
+      border: 1px solid var(--rule);
+      background: #fff;
       text-align: left;
       word-break: break-word;
       white-space: pre-wrap;
@@ -260,11 +261,26 @@
       animation: typingBlink 1.4s infinite;
       font-weight: 700;
     }
-    .typing-dots span:nth-child(2) { animation-delay: .2s; }
-    .typing-dots span:nth-child(3) { animation-delay: .4s; }
+
+    .typing-dots span:nth-child(2) {
+      animation-delay: .2s;
+    }
+
+    .typing-dots span:nth-child(3) {
+      animation-delay: .4s;
+    }
+
     @keyframes typingBlink {
-      0%, 80%, 100% { opacity: .25; }
-      40% { opacity: 1; }
+
+      0%,
+      80%,
+      100% {
+        opacity: .25;
+      }
+
+      40% {
+        opacity: 1;
+      }
     }
 
     .msg-header {
@@ -350,9 +366,15 @@
       color: var(--ink);
     }
 
-    .chat-input-row button:disabled {
+    .chat-input-row button:disabled,
+    button.btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    button.btn:disabled:hover {
+      background: var(--ink);
+      color: #fff;
     }
 
     .btn-secondary {
@@ -739,6 +761,45 @@
     .ex-response-field:focus {
       background: #fff;
       border-color: var(--ink);
+    }
+
+    /* Grounding 5-4-3-2-1: multi-slot input */
+    .gr-slot-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .gr-slot {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px dashed var(--rule);
+      font-family: inherit;
+      font-size: 13px;
+      background: #fafafa;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .gr-slot:focus {
+      border: 1px solid var(--ink);
+      background: #fff;
+    }
+
+    .gr-slot.filled {
+      border: 1px solid var(--ink);
+      background: #f5f5f0;
+    }
+
+    .gr-slot-row {
+      counter-reset: slot;
+    }
+
+    .gr-slot::before {
+      content: counter(slot);
+      counter-increment: slot;
     }
 
     .ex-meta-row {
@@ -1467,9 +1528,14 @@
       font-family: "Courier New", monospace;
     }
 
-    .history-row:last-child { border-bottom: none; }
+    .history-row:last-child {
+      border-bottom: none;
+    }
 
-    .history-row .h-date { color: var(--muted); flex: 0 0 auto; }
+    .history-row .h-date {
+      color: var(--muted);
+      flex: 0 0 auto;
+    }
 
     .history-row .h-type {
       font-weight: 700;
@@ -1477,7 +1543,9 @@
       flex: 0 0 auto;
     }
 
-    .history-row .h-band { color: var(--muted); }
+    .history-row .h-band {
+      color: var(--muted);
+    }
 
     .history-row .h-src {
       margin-left: auto;
@@ -1487,7 +1555,10 @@
       padding: 0 5px;
     }
 
-    .history-row .h-flag { color: var(--danger); font-weight: 700; }
+    .history-row .h-flag {
+      color: var(--danger);
+      font-weight: 700;
+    }
 
     .trend-line {
       font-family: "Courier New", monospace;
@@ -1496,8 +1567,13 @@
       border-bottom: 1px dotted var(--soft);
     }
 
-    .trend-line .tl-delta-up { font-weight: 700; }
-    .trend-line .tl-delta-down { font-weight: 700; }
+    .trend-line .tl-delta-up {
+      font-weight: 700;
+    }
+
+    .trend-line .tl-delta-down {
+      font-weight: 700;
+    }
 
     .analysis-card {
       font-size: 14px;
@@ -1939,7 +2015,8 @@
           tab.classList.add('active');
           document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
           if (tab.dataset.tab === 'checkin') renderCheckinStatus();
-          if (tab.dataset.tab === 'exercises') loadExerciseRecords();        });
+          if (tab.dataset.tab === 'exercises') loadExerciseRecords();
+        });
       });
     }
 
@@ -2325,8 +2402,9 @@
           '进度：' + completedCount + ' / ' + steps.length + ' 步已完成</div>';
       }
 
+      // 完成态不再渲染"之前的回答"——总结卡片已完整承载，避免同页三重重复
       let historyHtml = '';
-      if (responses.length > 0) {
+      if (!isComplete && responses.length > 0) {
         historyHtml = '<div class="ex-history-list">' +
           '<div class="ex-history-title">之前的回答 <span class="count">' + responses.length + '</span></div>' +
           responses.map((r, i) => '<div class="ex-history-item">' +
@@ -2342,26 +2420,56 @@
         const stepNum = idx + 1;
         const totalSteps = steps.length;
         const prevResp = responses[idx] || '';
-        currentStepHtml =
-          '<div class="ex-guided-step">' +
-          '<span class="ex-step-label">STEP ' + stepNum + ' / ' + totalSteps + '</span>' +
-          '<div class="ex-step-guide"><strong>' + guideText.split('.')[0] + '</strong>' +
-          (guideText.includes('.') ? guideText.substring(guideText.indexOf('.') + 1) : guideText) + '</div>' +
-          '<textarea class="ex-response-field" id="exRespField" placeholder="在这里写下你的想法或体验..." oninput="updateExResp(this.value)">' + escapeHtml(prevResp) + '</textarea>' +
-          '<div class="ex-meta-row">' +
-          '<span>你的回答仅保存在本设备</span>' +
-          '<span>' + (prevResp.length) + ' 字</span>' +
-          '</div>' +
-          '</div>';
+        const isGrounding = curExercise.key === 'panic_grounding_5_4_3_2_1';
+
+        // Grounding: multi-slot input (5→4→3→2→1)
+        if (isGrounding) {
+          const slotCount = 5 - idx;
+          // Split previous response into slots (fallback: one slot per word, pad with empty)
+          const prevSlots = prevResp ? prevResp.split(/\s+/).filter(Boolean) : [];
+          while (prevSlots.length < slotCount) prevSlots.push('');
+
+          let slotInputs = '';
+          for (let s = 0; s < slotCount; s++) {
+            const val = escapeHtml(prevSlots[s] || '');
+            const filled = val ? ' filled' : '';
+            slotInputs += '<input type="text" class="gr-slot' + filled + '" data-slot="' + s + '" value="' + val + '" placeholder="第 ' + (s + 1) + ' 样..." oninput="onGroundingSlot(this)">';
+          }
+
+          currentStepHtml =
+            '<div class="ex-guided-step">' +
+            '<span class="ex-step-label">STEP ' + stepNum + ' / ' + totalSteps + '</span>' +
+            '<div class="ex-step-guide"><strong>' + guideText.split('.')[0] + '</strong>' +
+            (guideText.includes('.') ? guideText.substring(guideText.indexOf('.') + 1) : guideText) + '</div>' +
+            '<div class="gr-slot-row" id="grSlotRow">' + slotInputs + '</div>' +
+            '<div class="ex-meta-row">' +
+            '<span id="grFillStatus">0 / ' + slotCount + ' 已填写</span>' +
+            '</div>' +
+            '</div>';
+        } else {
+          currentStepHtml =
+            '<div class="ex-guided-step">' +
+            '<span class="ex-step-label">STEP ' + stepNum + ' / ' + totalSteps + '</span>' +
+            '<div class="ex-step-guide"><strong>' + guideText.split('.')[0] + '</strong>' +
+            (guideText.includes('.') ? guideText.substring(guideText.indexOf('.') + 1) : guideText) + '</div>' +
+            '<textarea class="ex-response-field" id="exRespField" placeholder="在这里写下你的想法或体验..." oninput="updateExResp(this.value)">' + escapeHtml(prevResp) + '</textarea>' +
+            '<div class="ex-meta-row">' +
+            '<span>你的回答仅保存在本设备</span>' +
+            '<span>' + (prevResp.length) + ' 字</span>' +
+            '</div>' +
+            '</div>';
+        }
       }
 
       let cta = '';
       if (isComplete) {
         cta = renderExerciseSummary(d, steps, responses);
       } else {
+        const isGrounding = curExercise.key === 'panic_grounding_5_4_3_2_1';
+        const disabledAttr = isGrounding ? ' disabled' : '';
         cta = '<div class="ev-actions">' +
           (idx > 0 ? '<button class="btn btn-secondary" onclick="prevStep()">← 上一步</button>' : '') +
-          '<button class="btn" onclick="saveAndAdvance()">保存此步，进入下一步 →</button>' +
+          '<button class="btn" id="exSaveBtn"' + disabledAttr + ' onclick="saveAndAdvance()">保存此步，进入下一步 →</button>' +
           '</div>';
       }
 
@@ -2376,6 +2484,12 @@
       if (!isComplete && idx < steps.length) {
         const f = document.getElementById('exRespField');
         if (f) f.focus();
+        // Grounding: update slot fill status + focus first slot
+        if (curExercise.key === 'panic_grounding_5_4_3_2_1') {
+          const firstSlot = document.querySelector('#grSlotRow .gr-slot');
+          if (firstSlot) firstSlot.focus();
+          onGroundingSlot(firstSlot);
+        }
       }
     }
     function generateWarmSummary(exerciseKey, d, steps, responses) {
@@ -2469,24 +2583,84 @@
       }
 
       // ---- 5-4-3-2-1 Grounding ----
+      // 正向人格画像：根据用户每步输入的感官关键词，生成「你是一个___的人」描述。
+      // 安全护栏：只匹配正向词，输入里含负向/病理化词时直接跳过关键词匹配，走正向兜底。
       else if (key === 'panic_grounding_5_4_3_2_1') {
+        // 负向屏蔽：用户输入含病理化/贬义词时，不做任何关键词匹配，避免输出负面人格标签
+        const NEGATIVE_FILTER = /焦虑|抑郁|强迫|恐惧|不安|崩溃|绝望|压力|烦躁|紧张|难过|伤心|痛苦|孤单|寂寞|无助|糟糕|没用|失败|讨厌|害怕|哭泣|疲惫|麻木|窒息|恐慌|惊恐|烦闷|低落|灰心|空虚|无聊|厌倦|羞怯|自卑|自责|自暴自弃|自杀|想死|撑不住|垮了|毁了|糟糕|恶心|恐怖|可怕|肮脏|冰冷|僵硬|刺痛|痛苦|伤痛/;
+        // 关键词 → 正向人格特质（每一条都是积极描述，不含任何病理化/贬义词汇）
+        const POS_TRAITS = [
+          // 动物 · 自然意象
+          { k: /蝴蝶|飞蛾|蜻蜓|鸟|云雀|燕|蜂|蝶/, t: '向往自由翱翔' },
+          { k: /猫|喵|豹|虎|狮|山猫/, t: '独立而优雅，有自己的节奏' },
+          { k: /狗|犬|狼|狐|狐狸|汪/, t: '忠诚温暖，愿意靠近他人' },
+          { k: /鱼|鲸|鲨|河|湖|溪|泉|水/, t: '柔软包容，能适应各种形态' },
+          { k: /树|森|林|木|根|叶|枝/, t: '沉稳坚定，扎根生长' },
+          { k: /花|草|香|玫|菊|荷|莲|兰|葵/, t: '温柔细腻，在安静中绽放' },
+          { k: /山|岩|石|峰|岭|崖/, t: '坚实可靠，遇事不慌' },
+          { k: /海|洋|浪|潮|涛|滩|岸/, t: '胸怀宽广，能容纳一切' },
+          { k: /风|云|天|空|晴|蓝/, t: '洒脱自在，轻盈不受束缚' },
+          { k: /日|阳|光|星|月|亮|金|辉/, t: '温暖明亮，自带光芒' },
+          { k: /雪|白|霜|冰|晶|透|清|洁|净/, t: '纯粹清爽，心如明镜' },
+          { k: /火|焰|热|暖|红|橙|黄/, t: '热情真挚，有感染力' },
+          { k: /绿|草|春|芽|苗/, t: '充满生机，总能找到希望' },
+          { k: /夜|灯|暗|静|寂/, t: '内心丰富，在安静中自有力量' },
+          // 日常物品
+          { k: /书|本|页|纸|笔|字|读/, t: '热爱思考，内心有一片天地' },
+          { k: /杯|碗|瓷|陶|茶|咖|汤|喝/, t: '懂得照顾自己，享受小确幸' },
+          { k: /灯|光|烛|火|照|明/, t: '愿意照亮自己也温暖他人' },
+          { k: /门|窗|帘|幕|开|通/, t: '心里有扇门，随时愿意打开' },
+          { k: /枕|被|床|毯|软|绒|棉|柔/, t: '柔软可爱，治愈力满满' },
+          { k: /音|歌|乐|曲|响|唱|哼/, t: '热爱生活，能被美好打动' },
+          { k: /笑|开心|幸福|快乐|爽|甜|美/, t: '乐观明亮，笑容里有力量' },
+          { k: /手|掌|指|触|摸|碰|握|牵/, t: '渴望联结，愿意触碰真实' },
+          { k: /香|味|气|息|芬芳|清新/, t: '感知细腻，能捕捉美好细节' },
+          { k: /味|道|吃|尝|甜|鲜|美|食/, t: '懂得品尝生活的滋味' },
+          // 正面情绪兜底
+          { k: /平静|安心|安定|稳定|宁静|平和/, t: '内心安定，遇事从容' },
+          { k: /勇气|勇敢|力量|坚强|坚韧/, t: '内心勇敢，有撑住自己的力量' },
+          { k: /希望|期待|愿望|祝愿|盼望/, t: '心里有光，愿意向前看' },
+          { k: /爱|喜欢|想要|愿意/, t: '心里有温度，愿意去爱' },
+          { k: /朋友|家人|伴侣|亲密/, t: '在乎关系，珍惜身边的人' },
+        ];
+        const FALLBACK_TRAITS = [
+          '愿意花时间回到自己，这本身就是温柔',
+          '在混乱中锚定自己，你很有力量',
+          '愿意停下来，就是对自己好',
+          '能感知自己的人，也能感知世界',
+          '你的每一次觉察，都是对自己的在意',
+        ];
+
+        // 从 5 步输入里提取正向特质（去重、限 2 条）
+        const allInput = [r[0], r[1], r[2], r[3], r[4]].filter(Boolean).join(' ');
+        const hasNegative = NEGATIVE_FILTER.test(allInput);
+        const matched = [];
+        if (!hasNegative) {
+          for (const t of POS_TRAITS) {
+            if (t.k.test(allInput)) {
+              if (!matched.includes(t.t)) matched.push(t.t);
+              if (matched.length >= 2) break;
+            }
+          }
+        }
+
         warmHtml = '<div class="ex-warm-card">' +
           '<div class="wc-header"><span class="wc-icon">🌿</span><span class="wc-title">温柔总结 · 5-4-3-2-1 接地</span></div>' +
           '<div class="wc-body">';
 
         warmHtml += '<p>你从思绪的风暴中，一步一步回到了此时此刻。</p>';
 
-        if (r[0] || r[1] || r[2] || r[3] || r[4]) {
-          warmHtml += '<div class="wc-reflect"><div class="wc-reflect-title">你锚定的当下</div>';
-          const anchors = [];
-          if (r[0]) anchors.push('👀 ' + escapeHtml(r[0].substring(0, 25)));
-          if (r[1]) anchors.push('✋ ' + escapeHtml(r[1].substring(0, 25)));
-          if (r[2]) anchors.push('👂 ' + escapeHtml(r[2].substring(0, 25)));
-          if (r[3]) anchors.push('👃 ' + escapeHtml(r[3].substring(0, 25)));
-          if (r[4]) anchors.push('👅 ' + escapeHtml(r[4].substring(0, 25)));
-          warmHtml += anchors.join('<br>');
-          warmHtml += '</div>';
+        // 正向人格画像区（替代原锚点回声）
+        warmHtml += '<div class="wc-reflect"><div class="wc-reflect-title">你是一个怎样的人</div>';
+        if (matched.length > 0) {
+          matched.forEach(trait => {
+            warmHtml += '<p style="margin:6px 0;font-size:14px;color:var(--text);">你是一个<span class="wc-highlight">' + escapeHtml(trait) + '</span>的人。</p>';
+          });
+        } else {
+          const fb = FALLBACK_TRAITS[Math.floor(Math.random() * FALLBACK_TRAITS.length)];
+          warmHtml += '<p style="margin:6px 0;font-size:14px;color:var(--text);">' + escapeHtml(fb) + '。</p>';
         }
+        warmHtml += '</div>';
 
         warmHtml += '<p>也许刚才的你感到有些漂浮、有些遥远，但现在——<br>' +
           '你有 5 样可以看见的东西，<br>' +
@@ -2515,16 +2689,6 @@
       return warmHtml;
     }
     function renderExerciseSummary(d, steps, responses) {
-      const items = steps.map((step, i) => {
-        const resp = responses[i] || '';
-        return '<div class="ex-summary-item">' +
-          '<div class="si-label">STEP ' + (i + 1) + '</div>' +
-          '<div class="si-guide">' + escapeHtml(step) + '</div>' +
-          '<div class="si-resp' + (resp ? '' : ' empty') + '">' + escapeHtml(resp || '(未填写)') + '</div>' +
-          '</div>';
-      }).join('');
-
-      const savedToCloud = curExercise.saved_to_cloud;
       const doneMap = JSON.parse(localStorage.getItem(STORE_KEYS.EX_DONE) || '{}');
       doneMap[curExercise.key] = new Date().toISOString();
       localStorage.setItem(STORE_KEYS.EX_DONE, JSON.stringify(doneMap));
@@ -2534,16 +2698,13 @@
 
       const warmCard = generateWarmSummary(curExercise.key, d, steps, responses);
 
+      // 三重重复修复：历史回答(historyHtml)、温柔总结锚点(warmCard)、完整步骤卡片(ex-summary-card)
+      // 三处同时列出用户回答导致冗余。现去掉 ex-summary-card，由 warmCard 统一承载情感化总结 + 关键锚点。
       return warmCard +
         '<div class="completion-banner">' +
         '<div class="tick">✓</div>' +
         '<div class="c-title">练习完成</div>' +
-        '<div class="c-sub">你已完成所有步骤。以下是本次练习的完整记录。</div>' +
-        '</div>' +
-        '<div class="ex-summary-card">' +
-        '<div class="sc-title">' + escapeHtml(d.name || curExercise.key) + ' · 总结</div>' +
-        '<div class="sc-sub">完成时间：' + new Date().toLocaleString() + ' · 共 ' + steps.length + ' 步</div>' +
-        items +
+        '<div class="c-sub">你已完成所有步骤。</div>' +
         '</div>' +
         '<div class="ev-actions" style="margin-top:14px;">' +
         '<button class="btn btn-secondary" onclick="restartExercise()">再来一次</button>' +
@@ -2555,17 +2716,53 @@
       if (!curExercise.responses) curExercise.responses = [];
       curExercise.responses[curExercise.currentStep] = val;
     }
+    // Grounding multi-slot: on each slot input, update filled status and save button
+    function onGroundingSlot(el) {
+      const slotRow = document.getElementById('grSlotRow');
+      if (!slotRow) return;
+      const slots = slotRow.querySelectorAll('.gr-slot');
+      let filled = 0;
+      slots.forEach(s => {
+        if (s.value.trim()) { s.classList.add('filled'); filled++; }
+        else { s.classList.remove('filled'); }
+      });
+      // Update status text
+      const status = document.getElementById('grFillStatus');
+      if (status) status.textContent = filled + ' / ' + slots.length + ' 已填写';
+      // Enable save button only when ALL filled
+      const btn = document.getElementById('exSaveBtn');
+      if (btn) btn.disabled = filled < slots.length;
+    }
     function saveAndAdvance() {
       if (!curExercise) return;
       const steps = curExercise.data.steps || [];
       const idx = curExercise.currentStep;
-      const resp = (document.getElementById('exRespField')?.value || '').trim();
+
+      let resp = '';
+      if (curExercise.key === 'panic_grounding_5_4_3_2_1') {
+        // Grounding: collect all slot values and join with space
+        const slotRow = document.getElementById('grSlotRow');
+        if (slotRow) {
+          const slots = slotRow.querySelectorAll('.gr-slot');
+          resp = Array.from(slots).map(s => s.value.trim()).filter(Boolean).join(' ');
+        }
+      } else {
+        resp = (document.getElementById('exRespField')?.value || '').trim();
+      }
+
       if (!curExercise.responses) curExercise.responses = [];
       curExercise.responses[idx] = resp;
       curExercise.done.add(idx);
       if (idx < steps.length - 1) {
         curExercise.currentStep++;
         paintExercise();
+        // Grounding: auto-focus first slot after advancing
+        if (curExercise.key === 'panic_grounding_5_4_3_2_1') {
+          setTimeout(() => {
+            const firstSlot = document.querySelector('#grSlotRow .gr-slot');
+            if (firstSlot) firstSlot.focus();
+          }, 50);
+        }
       } else {
         paintExercise();
         reportExerciseComplete();
@@ -2583,6 +2780,8 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ reflection_note: note.slice(0, 500) })
         });
+        // 上报成功后立即刷新练习记录，用户刚做完不应还显示"还没有练习记录"
+        loadExerciseRecords();
       } catch (err) { /* 服务端不可达时不上报 */ }
     }
     function markStepDone() {
