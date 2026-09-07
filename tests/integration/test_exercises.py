@@ -2,7 +2,6 @@ from fastapi.testclient import TestClient
 
 from psych_support_bot.app import app
 
-
 client = TestClient(app)
 
 

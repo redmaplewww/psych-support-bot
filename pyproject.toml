@@ -23,17 +23,20 @@ dependencies = [
     "redis>=7.4.0",
     "sqlalchemy>=2.0.49",
     "uvicorn[standard]>=0.44.0",
+    "pyjwt>=2.13.0",
 ]
 
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
     "pytest>=9.0.3",
+    "ruff>=0.6.0",
 ]
 
 [project.scripts]
 psych-support-bot = "psych_support_bot.main:main"
 psych-support-bot-evals = "psych_support_bot.evals.runner:main"
+psych-support-bot-judge = "psych_support_bot.evals.judge:main"
 psych-support-bot-ingest-knowledge = "psych_support_bot.knowledge_ingestion:main"
 
 [build-system]
@@ -43,5 +46,29 @@ build-backend = "uv_build"
 [tool.uv]
 package = true
 
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple/"
+default = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-k \"not slow\"')",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["F", "W", "I", "UP", "B", "SIM", "C4", "DTZ", "BLE", "RUF"]
+ignore = [
+    "RUF001", # Chinese quote characters in string literals
+    "RUF002", # Chinese quote characters in docstrings
+    "RUF003", # Chinese quote characters in comments
+    "E501",   # Line too long (many Chinese strings exceed 100 chars)
+    "B008",   # FastAPI Depends()/Query() in defaults is standard
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/psych_support_bot/knowledge_ingestion.py" = ["BLE001"]
+"src/psych_support_bot/infra/telemetry/tracing.py" = ["BLE001"]

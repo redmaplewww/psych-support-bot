@@ -1,0 +1,95 @@
+{
+  "must_pass": [
+    {
+      "name": "zh_relaxation_hits_pointer",
+      "message": "我想放松一下，有没有什么平静的方法？",
+      "mode": "support",
+      "risk": "low",
+      "expect_source": "practice_pointer",
+      "expect_entry_prefix": "practice-pointer:"
+    },
+    {
+      "name": "en_panic_hits_psychoeducation",
+      "message": "I am having a panic attack and I cannot breathe",
+      "mode": "support",
+      "risk": "elevated",
+      "expect_entry_prefix": "psychoeducation:panic_attacks_overview"
+    },
+    {
+      "name": "zh_sleep_hits_insomnia",
+      "message": "我最近老是失眠睡不着",
+      "mode": "support",
+      "risk": "low",
+      "expect_entry_prefix": "psychoeducation:insomnia_overview"
+    },
+    {
+      "name": "en_burnout_hits_burnout_overview",
+      "message": "I feel completely burned out at work",
+      "mode": "support",
+      "risk": "low",
+      "expect_entry_prefix": "psychoeducation:burnout_overview"
+    },
+    {
+      "name": "zh_crisis_hits_crisis_protocol",
+      "message": "我撑不下去了",
+      "mode": "crisis",
+      "risk": "high",
+      "expect_entry_prefix": "crisis:",
+      "forbid_entry_prefix": "practice-pointer:"
+    },
+    {
+      "name": "en_grounding_intervention_hits_pointer",
+      "message": "Can you guide me through a breathing exercise?",
+      "mode": "intervention",
+      "risk": "low",
+      "expect_source": "practice_pointer"
+    },
+    {
+      "name": "en_burnout_no_sibling_flood",
+      "message": "I feel completely burned out at work and exhausted every day, I cannot focus anymore",
+      "mode": "support",
+      "risk": "low",
+      "max_per_doc": 2
+    },
+    {
+      "name": "en_social_anxiety_no_sibling_flood",
+      "message": "I am scared of being judged and embarrassed around people",
+      "mode": "support",
+      "risk": "low",
+      "max_per_doc": 2
+    },
+    {
+      "name": "zh_greeting_stays_empty",
+      "message": "你好呀",
+      "mode": "support",
+      "risk": "low",
+      "expect_zero_hits": true
+    }
+  ],
+  "known_gaps": [
+    {
+      "name": "zh_depression_variant_misses_depression_topic",
+      "message": "我心情一直很低落，什么都不想做",
+      "mode": "support",
+      "risk": "low",
+      "expect_topic": "depression",
+      "gap_reason": "词表只有'情绪低落'，用户说'心情很低落'——批次2 LLM 语义 topics 修复"
+    },
+    {
+      "name": "zh_planning_sleep_zero_hits",
+      "message": "我想给自己定个小计划，早点睡",
+      "mode": "planning",
+      "risk": "low",
+      "min_hits": 1,
+      "gap_reason": "planning 模式 + 复合意图（计划+睡眠），关键词检测 topics 为空——批次2 修复"
+    },
+    {
+      "name": "en_grief_variant_misses_grief_topic",
+      "message": "I lost my father three months ago and I still cry every day",
+      "mode": "support",
+      "risk": "low",
+      "expect_topic": "grief",
+      "gap_reason": "'lost my father' 不在 grief 词表，误检失眠条目——批次2 修复"
+    }
+  ]
+}

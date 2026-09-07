@@ -1,5 +1,6 @@
-from fastapi import HTTPException
 from typing import Any, cast
+
+from fastapi import HTTPException
 
 from psych_support_bot.domain.assessments.questionnaires import QUESTIONNAIRES
 from psych_support_bot.domain.assessments.schemas import (
@@ -115,9 +116,7 @@ EN_GUIDE_OVERRIDES: dict[str, dict[str, object]] = {
 }
 
 
-def questionnaire_guide(
-    assessment_type: AssessmentType, language: str = "zh"
-) -> QuestionnaireGuide:
+def questionnaire_guide(assessment_type: AssessmentType, language: str = "zh") -> QuestionnaireGuide:
     definition = cast(dict[str, Any], QUESTIONNAIRES[assessment_type]).copy()
     if language == "en":
         definition.update(EN_GUIDE_OVERRIDES[assessment_type])
@@ -139,10 +138,7 @@ def questionnaire_guide(
 
 
 def list_questionnaire_guides(language: str = "zh") -> list[QuestionnaireGuide]:
-    return [
-        questionnaire_guide(assessment_type, language=language)
-        for assessment_type in QUESTIONNAIRES
-    ]
+    return [questionnaire_guide(assessment_type, language=language) for assessment_type in QUESTIONNAIRES]
 
 
 def build_questionnaire_session_view(
@@ -225,15 +221,38 @@ def detect_questionnaire_request(message: str) -> AssessmentType | None:
     return None
 
 
-def parse_questionnaire_answer(
-    message: str, assessment_type: AssessmentType
-) -> int | None:
-    lowered = message.strip().casefold()
-    if lowered.isdigit():
-        value = int(lowered)
-        max_score = int(
-            cast(dict[str, Any], QUESTIONNAIRES[assessment_type])["item_max_score"]
+def parse_questionnaire_answer(message: str, assessment_type: AssessmentType) -> int | None:
+    import re
+
+    # Remove zero-width chars, BOM, non-breaking spaces, and other
+    # invisible Unicode characters that may sneak in from web/mobile input.
+    _invisible = re.compile(r"[\u200b\u200c\u200d\ufeff\u00a0\u2060\u202e\u202c]")
+    cleaned = _invisible.sub("", message).strip().casefold()
+
+    # Direct digit match (after cleaning)
+    if cleaned.isdigit():
+        value = int(cleaned)
+        max_score = int(cast(dict[str, Any], QUESTIONNAIRES[assessment_type])["item_max_score"])
+        if 0 <= value <= max_score:
+            return value
+
+    # Strict structured extraction: only accept the answer when the message is
+    # shaped like an answer ("3分", "选3", "第3项", "3.", '"3"'). Grabbing the
+    # first integer from free text once scored "我最近3天都很焦虑" as answer 3 —
+    # a real emotional disclosure silently swallowed as data (Langfuse 巡检
+    # 2026-09-04). Unstructured prose must return None so downstream guards
+    # (disengage / emotional-disclosure) can handle it.
+    structured_answer = re.match(
+        r'^["\'“”‘’\s]*(\d+)\s*(?:分|\.|。|，|,|项|个|号)?["\'“”‘’\s.,。、！？!?：:~～]*$', cleaned
+    )
+    if not structured_answer:
+        structured_answer = re.match(
+            r'^["\'“”‘’\s]*(?:我)?(?:选择|选|答案是|答案|第)\s*(\d+)\s*(?:项|个|号|题)?["\'“”‘’\s.,。、！？!?：:~～]*$',
+            cleaned,
         )
+    if structured_answer:
+        value = int(structured_answer.group(1))
+        max_score = int(cast(dict[str, Any], QUESTIONNAIRES[assessment_type])["item_max_score"])
         if 0 <= value <= max_score:
             return value
 
@@ -259,7 +278,7 @@ def parse_questionnaire_answer(
         },
     }
     for value, aliases in option_aliases[assessment_type].items():
-        if any(alias in lowered for alias in aliases):
+        if any(alias in cleaned for alias in aliases):
             return value
     return None
 
@@ -272,8 +291,17 @@ def detect_skip_or_exit(message: str) -> bool:
         "don't want",
         "want to stop",
         "want to quit",
+        "not anymore",
+        "don't ask",
+        "no more questions",
+        "leave me alone",
         "不想做了",
         "不想做",
+        "不想答了",
+        "不想回答",
+        "不想再回答",
+        "别再问了",
+        "别问了",
         "跳过",
         "算了",
         "不要",
@@ -287,14 +315,141 @@ def detect_skip_or_exit(message: str) -> bool:
     return any(word in lowered for word in skip_words)
 
 
-def build_questionnaire_prompt(
-    view: QuestionnaireSessionView, *, error_hint: str | None = None
-) -> str:
+_QUIET_WORDS = [
+    "让我静静",
+    "想静静",
+    "静一静",
+    "安静待",
+    "安静一会",
+    "一个人待",
+    "不想说话",
+    "just want quiet",
+    "want silence",
+]
+
+
+def classify_disengage(message: str) -> str | None:
+    """Classify disengagement intent shared by questionnaire flow and normal chat.
+
+    Returns ``"pause"`` (hold the questionnaire, keep partial answers),
+    ``"skip"`` (abandon it), ``"quiet"`` (user wants company without being
+    questioned), or ``None``.
+    """
+    lowered = message.strip().casefold()
+    if detect_pause_request(message):
+        return "pause"
+    if detect_skip_or_exit(message):
+        return "skip"
+    if any(word in lowered for word in _QUIET_WORDS):
+        return "quiet"
+    return None
+
+
+# Emotional-disclosure markers: when a mid-questionnaire message is really the
+# user opening up about how they feel, pressing them for the next numeric
+# answer is the worst possible reply (Langfuse 巡检 2026-09-04: 「我最近还感到
+# 很焦虑」被反复回以「请回复一个数字」). Matched as substrings on purpose —
+# these phrases are short and unambiguous, and false positives only cost a
+# gentle pause, which is the safer failure mode.
+_EMOTIONAL_DISCLOSURE_WORDS = [
+    "心情",
+    "难受",
+    "难过",
+    "不开心",
+    "很烦",
+    "好烦",
+    "烦躁",
+    "心慌",
+    "焦虑",
+    "压抑",
+    "委屈",
+    "想哭",
+    "崩溃",
+    "撑不住",
+    "受不了",
+    "好累",
+    "好难",
+    "痛苦",
+    "绝望",
+    "孤独",
+    "害怕",
+    "恐惧",
+    "emo",
+    "低落",
+    "睡不着",
+    "失眠",
+    "压力",
+    "喘不过气",
+    "情绪",
+]
+
+
+def detect_emotional_disclosure(message: str) -> bool:
+    """Return True when the message reads as the user sharing emotional distress
+    rather than answering (or disengaging from) the questionnaire."""
+    lowered = message.strip().casefold()
+    return any(word in lowered for word in _EMOTIONAL_DISCLOSURE_WORDS)
+
+
+# Minimum days between runs of the same screening scale; re-running sooner
+# yields unstable scores that may alarm users.
+RETEST_COOLDOWN_DAYS: dict[AssessmentType, int] = {"phq9": 7, "gad7": 7, "isi": 14}
+
+_RETEST_OVERRIDE_WORDS = ["重新测", "重测", "重新做", "再来一次", "再测一次", "again"]
+_PAUSE_WORDS = ["暂停", "停一下", "放一放", "待会", "待会儿", "等会", "等下", "等我", "pause"]
+
+
+def cooldown_days_for(assessment_type: AssessmentType) -> int:
+    return RETEST_COOLDOWN_DAYS.get(assessment_type, 7)
+
+
+def detect_retest_override(message: str) -> bool:
+    lowered = message.strip().casefold()
+    return any(word in lowered for word in _RETEST_OVERRIDE_WORDS)
+
+
+def detect_pause_request(message: str) -> bool:
+    lowered = message.strip().casefold()
+    return any(word in lowered for word in _PAUSE_WORDS)
+
+
+def build_progress_prefix(title: str, current_index: int, total_items: int, language: str) -> str:
+    """Deterministic progress header shown to the user before each question."""
+    if language == "zh":
+        return f"〔{title} · 第 {current_index}/{total_items} 题〕\n\n"
+    return f"[{title} · Question {current_index}/{total_items}]\n\n"
+
+
+def format_trend_line(language: str, *, prev_score: int, days_since: int, new_score: int) -> str:
+    """One-line comparison against the previous completed run of the same scale."""
+    if language == "zh":
+        when = f"（{days_since} 天前）" if days_since else ""
+        if new_score < prev_score:
+            verdict = f"比上次低了 {prev_score - new_score} 分，整体有所缓解。"
+        elif new_score > prev_score:
+            verdict = (
+                f"比上次高了 {new_score - prev_score} 分。分数波动不一定代表变糟，我们可以一起看看是哪些条目在变化。"
+            )
+        else:
+            verdict = "和上次基本持平。"
+        return f"对比一下：你上次的得分是 {prev_score}{when}，这次是 {new_score} 分，{verdict}"
+    when = f" ({days_since} days ago)" if days_since else ""
+    if new_score < prev_score:
+        verdict = f"that is {prev_score - new_score} points lower than last time — things have eased somewhat."
+    elif new_score > prev_score:
+        verdict = (
+            f"that is {new_score - prev_score} points higher than last time. "
+            "A change in score does not necessarily mean things got worse; we can look at which items moved."
+        )
+    else:
+        verdict = "essentially unchanged from last time."
+    return f"For comparison: you scored {prev_score}{when}, and this time {new_score} points — {verdict}"
+
+
+def build_questionnaire_prompt(view: QuestionnaireSessionView, *, error_hint: str | None = None) -> str:
     if view.next_item is None:
         return f"{view.questionnaire_title} is complete. I can help you interpret the result in plain language."
-    options_text = ", ".join(
-        f"{option.value}={option.label}" for option in view.next_item.options
-    )
+    options_text = ", ".join(f"{option.value}={option.label}" for option in view.next_item.options)
     answered = view.current_index
     remaining = view.total_items - answered - 1
     pct = round((answered + 1) / view.total_items * 100)
@@ -308,20 +463,27 @@ def build_questionnaire_prompt(
     return prompt
 
 
-def build_assessment_followup_reply(
-    result: AssessmentResult, *, user_message: str = ""
-) -> str:
+def build_assessment_followup_reply(result: AssessmentResult, *, user_message: str = "") -> str:
     is_zh = bool(user_message) and any("\u4e00" <= c <= "\u9fff" for c in user_message)
     lines: list[str] = []
 
     if is_zh:
         lines.append(f"感谢你完成{result.questionnaire_title}。")
-        lines.append(f"你的得分是{result.score}，属于{result.severity_band}范围。")
+        # severity_band 字段保持英文枚举值，仅在中文展示文案里做映射，
+        # 避免"属于mild范围"这类中英夹杂。
+        zh_band = {
+            "minimal": "极轻度",
+            "mild": "轻度",
+            "moderate": "中度",
+            "moderately_severe": "中重度",
+            "severe": "重度",
+            "subthreshold": "亚阈值",
+            "none": "无明显",
+        }.get(result.severity_band, result.severity_band)
+        lines.append(f"你的得分是{result.score}，属于{zh_band}范围。")
     else:
         lines.append(f"Thanks for completing {result.questionnaire_title}.")
-        lines.append(
-            f"Your score is {result.score}, which falls in the {result.severity_band} range."
-        )
+        lines.append(f"Your score is {result.score}, which falls in the {result.severity_band} range.")
 
     lines.append(result.interpretation.plain_meaning)
     lines.append(result.interpretation.functional_impact)
@@ -331,13 +493,9 @@ def build_assessment_followup_reply(
         lines.extend(flag.message for flag in result.interpretation.safety_flags)
 
     if is_zh:
-        lines.append(
-            "看完结果后，如果你想聊聊感受，或者想了解有什么小方法可以试试，随时告诉我。"
-        )
+        lines.append("看完结果后，如果你想聊聊感受，或者想了解有什么小方法可以试试，随时告诉我。")
     else:
-        lines.append(
-            "Is there anything from today's result you'd like to talk more about?"
-        )
+        lines.append("Is there anything from today's result you'd like to talk more about?")
 
     return " ".join(lines)
 
@@ -352,26 +510,19 @@ def validate_score(assessment_type: AssessmentType, score: int) -> None:
         )
 
 
-def score_from_answers(
-    assessment_type: AssessmentType, answers: AssessmentAnswerSet
-) -> int:
+def score_from_answers(assessment_type: AssessmentType, answers: AssessmentAnswerSet) -> int:
     definition = cast(dict[str, Any], QUESTIONNAIRES[assessment_type])
     expected_length = len(cast(list[str], definition["items"]))
     item_max_score = int(definition["item_max_score"])
     if len(answers.answers) != expected_length:
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"{assessment_type} requires {expected_length} answers; "
-                f"received {len(answers.answers)}."
-            ),
+            detail=(f"{assessment_type} requires {expected_length} answers; received {len(answers.answers)}."),
         )
     if any(answer < 0 or answer > item_max_score for answer in answers.answers):
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"Each answer for {assessment_type} must be between 0 and {item_max_score}."
-            ),
+            detail=(f"Each answer for {assessment_type} must be between 0 and {item_max_score}."),
         )
     return sum(answers.answers)
 
@@ -384,7 +535,9 @@ def interpretation_for_result(
     language: str = "en",
 ) -> AssessmentInterpretation:
     if language == "zh":
-        common_disclaimer = "这是一份筛查结果，不等同于临床诊断。需要结合你近期的压力、身体状况、睡眠情况和日常功能一起理解。"
+        common_disclaimer = (
+            "这是一份筛查结果，不等同于临床诊断。需要结合你近期的压力、身体状况、睡眠情况和日常功能一起理解。"
+        )
         if assessment_type == "phq9":
             plain_meaning = {
                 "minimal": "你的回答显示，目前抑郁相关症状水平较低。",
@@ -393,7 +546,9 @@ def interpretation_for_result(
                 "moderately_severe": "你的回答显示，目前抑郁相关症状处在相对较高的水平。",
                 "severe": "你的回答显示，目前抑郁相关症状水平较高。",
             }[severity_band]
-            functional_impact = "这种状态可能会影响动力、注意力、精力、自我照顾能力，以及维持工作、学习或人际关系的能力。"
+            functional_impact = (
+                "这种状态可能会影响动力、注意力、精力、自我照顾能力，以及维持工作、学习或人际关系的能力。"
+            )
         elif assessment_type == "gad7":
             plain_meaning = {
                 "minimal": "你的回答显示，目前焦虑相关症状水平较低。",
@@ -409,14 +564,16 @@ def interpretation_for_result(
                 "moderate": "你的回答显示，睡眠问题可能已经明显影响到白天生活。",
                 "severe": "你的回答显示，目前失眠相关痛苦或功能受损程度较高。",
             }[severity_band]
-            functional_impact = (
-                "这种状态可能影响疲劳感、情绪、注意力、白天表现，以及你对睡眠的信心。"
-            )
+            functional_impact = "这种状态可能影响疲劳感、情绪、注意力、白天表现，以及你对睡眠的信心。"
 
         if severity_band in {"minimal", "none"}:
-            care_consideration = "从筛查结果看，症状相对较轻；但如果你的主观痛苦感或日常影响仍然明显，依然值得考虑寻求支持。"
+            care_consideration = (
+                "从筛查结果看，症状相对较轻；但如果你的主观痛苦感或日常影响仍然明显，依然值得考虑寻求支持。"
+            )
         elif severity_band in {"mild", "subthreshold"}:
-            care_consideration = "目前已经出现一些症状。轻量自我照顾、心理教育和持续观察可能会有帮助，尤其当这些状态与近期压力有关时。"
+            care_consideration = (
+                "目前已经出现一些症状。轻量自我照顾、心理教育和持续观察可能会有帮助，尤其当这些状态与近期压力有关时。"
+            )
         elif severity_band == "moderate":
             care_consideration = "这个程度可能已经影响日常生活。如果症状持续超过几周，或者已经干扰睡眠、工作、学习或关系，值得认真考虑专业支持。"
         else:
@@ -447,7 +604,9 @@ def interpretation_for_result(
                 "moderate": "Your responses suggest sleep problems may be meaningfully affecting daytime life.",
                 "severe": "Your responses suggest a high level of insomnia-related distress or impairment right now.",
             }[severity_band]
-            functional_impact = "This pattern can affect fatigue, mood, concentration, daytime performance, and confidence about sleep."
+            functional_impact = (
+                "This pattern can affect fatigue, mood, concentration, daytime performance, and confidence about sleep."
+            )
 
         if severity_band in {"minimal", "none"}:
             care_consideration = "Symptoms look relatively low on this screening. If distress or daily-life impact still feels significant, support can still be worth considering."
@@ -481,9 +640,7 @@ def interpretation_for_result(
     )
 
 
-def build_assessment_score(
-    assessment_type: AssessmentType, score: int
-) -> AssessmentScore:
+def build_assessment_score(assessment_type: AssessmentType, score: int) -> AssessmentScore:
     validate_score(assessment_type, score)
     return AssessmentScore(
         assessment_type=assessment_type,

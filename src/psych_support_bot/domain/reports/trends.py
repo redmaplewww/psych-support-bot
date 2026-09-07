@@ -42,7 +42,7 @@ def _compute_trend(values: Sequence[int | float]) -> str:
 
 
 def compute_user_trends(session: Session, user_id: str, days: int = 14) -> TrendResult:
-    since = date.today() - timedelta(days=days)
+    since = date.today() - timedelta(days=days)  # noqa: DTZ011
 
     checkins_stmt = (
         session.query(CheckinRecord)

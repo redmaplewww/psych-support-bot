@@ -58,11 +58,11 @@ build_and_start() {
     local retries=0
     local max_retries=30
     while [ $retries -lt $max_retries ]; do
-        if curl -sf http://127.0.0.1:8000/health >/dev/null 2>&1; then
+        if curl -sf http://127.0.0.1:9958/health >/dev/null 2>&1; then
             echo ""
             info "服务已成功启动！"
             echo ""
-            echo "  访问地址: http://<你的服务器IP>:8000"
+            echo "  访问地址: http://<你的服务器IP>:9958"
             echo ""
             echo "  查看日志: docker compose -f docker-compose.server.yml logs -f"
             echo "  停止服务: docker compose -f docker-compose.server.yml down"
@@ -80,11 +80,11 @@ build_and_start() {
 
 open_firewall() {
     if command -v ufw &>/dev/null; then
-        sudo ufw allow 8000/tcp 2>/dev/null && info "已开放防火墙端口 8000 (ufw)" || true
+        sudo ufw allow 9958/tcp 2>/dev/null && info "已开放防火墙端口 9958 (ufw)" || true
     elif command -v firewall-cmd &>/dev/null; then
-        sudo firewall-cmd --permanent --add-port=8000/tcp 2>/dev/null && sudo firewall-cmd --reload 2>/dev/null && info "已开放防火墙端口 8000 (firewalld)" || true
+        sudo firewall-cmd --permanent --add-port=9958/tcp 2>/dev/null && sudo firewall-cmd --reload && info "已开放防火墙端口 9958 (firewalld)" || true
     elif command -v iptables &>/dev/null; then
-        sudo iptables -I INPUT -p tcp --dport 8000 -j ACCEPT 2>/dev/null && info "已开放防火墙端口 8000 (iptables)" || true
+        sudo iptables -I INPUT -p tcp --dport 9958 -j ACCEPT 2>/dev/null && info "已开放防火墙端口 9958 (iptables)" || true
     fi
 }
 

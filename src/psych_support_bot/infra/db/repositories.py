@@ -1,20 +1,21 @@
 from __future__ import annotations
 
-from datetime import date
 import json
+import logging
+from datetime import date, timedelta
 from uuid import uuid4
 
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from psych_support_bot.ai.schemas.messages import ConversationResponse
-from psych_support_bot.infra.db.base import Base
 from psych_support_bot.domain.assessments.schemas import (
     AssessmentResult,
     AssessmentScore,
     AssessmentType,
 )
 from psych_support_bot.domain.checkins.schemas import DailyCheckin
+from psych_support_bot.infra.db.base import Base
 from psych_support_bot.infra.db.models import (
     AssessmentRecord,
     CheckinRecord,
@@ -22,11 +23,14 @@ from psych_support_bot.infra.db.models import (
     Message,
     QuestionnaireSessionRecord,
     RiskEvent,
+    UsageEvent,
     User,
     UserProfile,
     WeeklyReportRecord,
     utcnow,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _safe(text: str) -> str:
@@ -81,7 +85,13 @@ def get_latest_summary(session: Session, user_id: str) -> str:
     return session.execute(stmt).scalar_one_or_none() or ""
 
 
-def get_recent_messages(session: Session, user_id: str, limit: int = 6) -> list[str]:
+def get_recent_messages(session: Session, user_id: str, limit: int = 10) -> list[str]:
+    """Most recent messages across the user's last sessions, role-labelled.
+
+    Kept as speaker-annotated strings (``User:`` / ``Bot:``) so the memory
+    snapshot can ground the model in what actually happened, including which
+    side said it.
+    """
     session_ids_stmt = (
         select(ConversationSession.id)
         .where(ConversationSession.user_id == user_id)
@@ -93,17 +103,20 @@ def get_recent_messages(session: Session, user_id: str, limit: int = 6) -> list[
         return []
 
     stmt = (
-        select(Message.content)
+        select(Message.role, Message.content)
         .where(Message.session_id.in_(session_ids))
         .order_by(desc(Message.created_at))
         .limit(limit)
     )
-    return list(session.execute(stmt).scalars())
+    rows = list(session.execute(stmt))
+    formatted = []
+    for role, content in rows:
+        prefix = "User" if role == "user" else "Bot"
+        formatted.append(f"{prefix}: {content}")
+    return formatted
 
 
-def get_user_sessions(
-    session: Session, user_id: str, limit: int = 20
-) -> list[ConversationSession]:
+def get_user_sessions(session: Session, user_id: str, limit: int = 20) -> list[ConversationSession]:
     stmt = (
         select(ConversationSession)
         .where(ConversationSession.user_id == user_id)
@@ -114,39 +127,77 @@ def get_user_sessions(
 
 
 def get_session_messages(session: Session, session_id: str) -> list[Message]:
-    stmt = (
-        select(Message)
-        .where(Message.session_id == session_id)
-        .order_by(Message.created_at)
-    )
+    stmt = select(Message).where(Message.session_id == session_id).order_by(Message.created_at)
     return list(session.execute(stmt).scalars())
 
 
-def get_user_risk_events(
-    session: Session, user_id: str, limit: int = 20
-) -> list[RiskEvent]:
-    stmt = (
-        select(RiskEvent)
-        .where(RiskEvent.user_id == user_id)
-        .order_by(desc(RiskEvent.created_at))
+def get_user_risk_events(session: Session, user_id: str, limit: int = 20) -> list[RiskEvent]:
+    stmt = select(RiskEvent).where(RiskEvent.user_id == user_id).order_by(desc(RiskEvent.created_at)).limit(limit)
+    return list(session.execute(stmt).scalars())
+
+
+RISK_EVENT_WINDOW_DAYS = 7
+
+
+def get_recent_risk_level(session: Session, user_id: str, *, days: int = RISK_EVENT_WINDOW_DAYS) -> str:
+    """窗口期内最近一次 high/critical RiskEvent 的等级，无则空串。
+
+    结构化升级通道：跨轮升级判定优先读本函数（RiskEvent 表），
+    摘要文本 risk=elevated 标记降级为兜底来源——结构化数据不依赖
+    摘要生成质量，也不会随摘要滚动丢失。
+    """
+    cutoff = utcnow() - timedelta(days=days)
+    row = (
+        session.query(RiskEvent.risk_level)  # type: ignore[attr-defined]
+        .filter(RiskEvent.user_id == user_id)  # 绑定参数，非字符串拼接
+        .filter(RiskEvent.created_at >= cutoff)
+        .filter(RiskEvent.risk_level.in_(["high", "critical"]))  # 绑定参数，非字符串拼接
+        .order_by(RiskEvent.created_at.desc())
+        .limit(1)
+        .first()
+    )
+    return row[0] if row else ""
+
+
+def get_recent_user_messages(session: Session, user_id: str, limit: int = 10) -> list[str]:
+    """用户本人最近发言（跨最近 3 个会话，时间倒序，不含 Bot 侧文本）。
+
+    供情绪扫描通道 user_history_text 使用：机器人回复与记录层渲染文本
+    都不能被当成用户情绪信号扫描。
+    """
+    session_ids = [
+        row[0]
+        for row in session.query(ConversationSession.id)  # type: ignore[attr-defined]
+        .filter(ConversationSession.user_id == user_id)  # 绑定参数，非字符串拼接
+        .order_by(desc(ConversationSession.created_at))
+        .limit(3)
+    ]
+    if not session_ids:
+        return []
+    rows = (
+        session.query(Message.content)  # type: ignore[attr-defined]
+        .filter(Message.session_id.in_(session_ids), Message.role == "user")  # 绑定参数，非字符串拼接
+        .order_by(desc(Message.created_at))
         .limit(limit)
+        .all()
     )
-    return list(session.execute(stmt).scalars())
+    return [row[0] for row in rows]
 
 
-def get_recent_assessment_summary(session: Session, user_id: str) -> str:
-    records = get_user_assessments(session, user_id, limit=3)
-    if not records:
-        return ""
-    return "; ".join(
-        f"{record.assessment_type}:{record.score}({record.severity_band})"
-        for record in records
-    )
+def build_user_history_text(session: Session, user_id: str) -> str:
+    """情绪扫描专用通道：用户原话 + 会话摘要，不含记录层渲染文本。
+
+    _detect_cross_turn_contradiction / _has_previous_elevated 只读本通道，
+    避免量表标题（如"失眠严重程度量表"）里的临床词汇被误读为用户情绪。
+    会话摘要里的 risk=elevated 标记同时是 _has_previous_elevated 的结构化来源。
+    """
+    latest_summary = get_latest_summary(session, user_id)
+    user_messages = get_recent_user_messages(session, user_id)
+    pieces = [latest_summary, "\n".join(reversed(user_messages))] if user_messages else [latest_summary]
+    return "\n".join(_safe(piece) for piece in pieces if piece)
 
 
-def get_user_assessments(
-    session: Session, user_id: str, *, limit: int = 50
-) -> list[AssessmentRecord]:
+def get_user_assessments(session: Session, user_id: str, *, limit: int = 50) -> list[AssessmentRecord]:
     stmt = (
         select(AssessmentRecord)
         .where(AssessmentRecord.user_id == user_id)
@@ -156,30 +207,21 @@ def get_user_assessments(
     return list(session.execute(stmt).scalars())
 
 
-def build_memory_snapshot(session: Session, user_id: str) -> str:
+def build_memory_snapshot(session: Session, user_id: str, *, language: str = "") -> str:
     latest_summary = get_latest_summary(session, user_id)
     recent_messages = get_recent_messages(session, user_id)
-    assessment_summary = get_recent_assessment_summary(session, user_id)
-    recent_checkins = get_recent_checkins(session, user_id, limit=3)
     profile = get_user_profile(session, user_id)
 
-    checkin_summary = ""
-    if recent_checkins:
-        avg_mood = sum(item.mood_score for item in recent_checkins) / len(
-            recent_checkins
-        )
-        avg_anxiety = sum(item.anxiety_score for item in recent_checkins) / len(
-            recent_checkins
-        )
-        checkin_summary = (
-            f"recent check-ins mood={avg_mood:.1f}/10 anxiety={avg_anxiety:.1f}/10"
-        )
+    # 记录层（评估/打卡/练习）改为热插拔模块渲染（ai/memory_modules.py），
+    # 单层失败只跳过该层；MEMORY_MODULE_* 开关关闭时该层不出现在 prompt。
+    from psych_support_bot.ai.memory_modules import render_record_layers
 
-    recent_excerpt = (
-        " | ".join(_safe(msg) for msg in reversed(recent_messages[-3:]))
-        if recent_messages
-        else ""
-    )
+    record_layers = render_record_layers(session, user_id, language)
+
+    # Last five turns with speaker labels — thin excerpts were the root cause
+    # of the bot forgetting events like "we just finished a breathing exercise"
+    # and re-asking the user whether they wanted to start one.
+    recent_excerpt = "\n".join(_safe(msg) for msg in reversed(recent_messages[-5:])) if recent_messages else ""
     profile_summary = ""
     if profile is not None:
         profile_summary = " || ".join(
@@ -197,8 +239,7 @@ def build_memory_snapshot(session: Session, user_id: str) -> str:
         for piece in [
             profile_summary,
             latest_summary,
-            assessment_summary,
-            checkin_summary,
+            record_layers,
             recent_excerpt,
         ]
         if piece
@@ -251,7 +292,7 @@ def save_conversation_result(
 
 
 def save_assessment(
-    session: Session, user_id: str, assessment: AssessmentScore
+    session: Session, user_id: str, assessment: AssessmentScore, *, source: str = "chat"
 ) -> AssessmentRecord:
     ensure_user(session, user_id)
     record = AssessmentRecord(
@@ -259,6 +300,7 @@ def save_assessment(
         assessment_type=assessment.assessment_type,
         score=assessment.score,
         severity_band=assessment.severity_band,
+        source=source,
     )
     if isinstance(assessment, AssessmentResult) and assessment.interpretation:
         interp = assessment.interpretation
@@ -268,9 +310,53 @@ def save_assessment(
         record.disclaimer = interp.disclaimer
         record.needs_safety_followup = interp.needs_safety_followup
     session.add(record)
+    record_usage_event(session, user_id, "assessment_submitted")
     session.commit()
     session.refresh(record)
     return record
+
+
+_ALLOWED_USAGE_EVENTS = {
+    "exercise_completed",
+    "assessment_submitted",
+    "checkin_created",
+    "checkin_backfilled",
+    "ai_analysis_requested",
+    "ai_analysis_served",
+    "auth_register",
+    "auth_login",
+    "auth_login_failed",
+    # 练习/评估须知确认与 AI 反馈触达（只记 tag + 条款版本 + 时间，无内容）
+    "exercise_consent",
+    "assessment_consent",
+    "privacy_policy_ack",
+    "exercise_guidance_used",
+    "exercise_feedback_served",
+    # 「我」页数据管理（只记动作与逐表行数，无内容）
+    "data_exported",
+    "records_cleared",
+}
+
+
+def record_usage_event(session: Session, user_id: str, event_type: str, **metadata: object) -> None:
+    """商业化计量埋点：只记动作元数据，绝不写情绪内容（伦理边界见 UsageEvent 注释）。
+
+    埋点失败不阻断主流程——用 savepoint 隔离，失败只丢弃这一条事件，
+    不回滚外层事务里正在进行的正常写入。
+    """
+    if event_type not in _ALLOWED_USAGE_EVENTS:
+        raise ValueError(f"Unknown usage event type: {event_type!r}")
+    try:
+        with session.begin_nested():
+            session.add(
+                UsageEvent(
+                    user_id=user_id,
+                    event_type=event_type,
+                    metadata_json=json.dumps(metadata or {}, ensure_ascii=False, default=str),
+                )
+            )
+    except Exception:
+        logger.warning("Usage event recording failed (non-blocking): %s", event_type, exc_info=True)
 
 
 def create_questionnaire_session(
@@ -296,15 +382,11 @@ def create_questionnaire_session(
     return record
 
 
-def get_questionnaire_session(
-    session: Session, session_id: str
-) -> QuestionnaireSessionRecord | None:
+def get_questionnaire_session(session: Session, session_id: str) -> QuestionnaireSessionRecord | None:
     return session.get(QuestionnaireSessionRecord, session_id)
 
 
-def get_active_questionnaire_session(
-    session: Session, user_id: str
-) -> QuestionnaireSessionRecord | None:
+def get_active_questionnaire_session(session: Session, user_id: str) -> QuestionnaireSessionRecord | None:
     stmt = (
         select(QuestionnaireSessionRecord)
         .where(QuestionnaireSessionRecord.user_id == user_id)
@@ -337,28 +419,97 @@ def complete_questionnaire_session(
     return session_record
 
 
-def save_checkin(
-    session: Session, user_id: str, checkin: DailyCheckin
-) -> CheckinRecord:
-    ensure_user(session, user_id)
-    record = CheckinRecord(
-        user_id=user_id,
-        checkin_date=date.today(),
-        mood_score=checkin.mood_score,
-        anxiety_score=checkin.anxiety_score,
-        sleep_hours=checkin.sleep_hours,
-        energy_score=checkin.energy_score,
-        note=checkin.note or "",
+def pause_questionnaire_session(
+    session: Session, session_record: QuestionnaireSessionRecord
+) -> QuestionnaireSessionRecord:
+    """Put an in-progress questionnaire on hold, keeping partial answers."""
+    session_record.status = "paused"
+    session.commit()
+    session.refresh(session_record)
+    return session_record
+
+
+def resume_questionnaire_session(
+    session: Session, session_record: QuestionnaireSessionRecord
+) -> QuestionnaireSessionRecord:
+    session_record.status = "in_progress"
+    session.commit()
+    session.refresh(session_record)
+    return session_record
+
+
+def get_paused_questionnaire_session(
+    session: Session, user_id: str, assessment_type: str
+) -> QuestionnaireSessionRecord | None:
+    stmt = (
+        select(QuestionnaireSessionRecord)
+        .where(QuestionnaireSessionRecord.user_id == user_id)
+        .where(QuestionnaireSessionRecord.assessment_type == assessment_type)
+        .where(QuestionnaireSessionRecord.status == "paused")
+        .order_by(desc(QuestionnaireSessionRecord.updated_at))
+        .limit(1)
     )
-    session.add(record)
+    return session.execute(stmt).scalar_one_or_none()
+
+
+def get_latest_assessment(session: Session, user_id: str, assessment_type: str) -> AssessmentRecord | None:
+    stmt = (
+        select(AssessmentRecord)
+        .where(AssessmentRecord.user_id == user_id)
+        .where(AssessmentRecord.assessment_type == assessment_type)
+        .order_by(desc(AssessmentRecord.created_at))
+        .limit(1)
+    )
+    return session.execute(stmt).scalar_one_or_none()
+
+
+def get_checkin_on_date(session: Session, user_id: str, checkin_date: date) -> CheckinRecord | None:
+    return (
+        session.query(CheckinRecord)  # type: ignore[attr-defined]
+        .filter(CheckinRecord.user_id == user_id)  # 绑定参数，非字符串拼接
+        .filter(CheckinRecord.checkin_date == checkin_date)
+        .order_by(CheckinRecord.created_at.desc())
+        .first()
+    )
+
+
+def save_checkin(session: Session, user_id: str, checkin: DailyCheckin) -> CheckinRecord:
+    """按 (user_id, checkin_date) 幂等 upsert。
+
+    未带 checkin_date 时视为"今天打卡"（同日已存在则覆盖）；
+    携带日期时用于本地历史补传——覆盖四维与备注，不虚增埋点。
+    """
+    ensure_user(session, user_id)
+    target_date = checkin.checkin_date or date.today()  # noqa: DTZ011
+    record = get_checkin_on_date(session, user_id, target_date)
+    is_new = record is None
+    if is_new:
+        record = CheckinRecord(
+            user_id=user_id,
+            checkin_date=target_date,
+            mood_score=checkin.mood_score,
+            anxiety_score=checkin.anxiety_score,
+            sleep_hours=checkin.sleep_hours,
+            energy_score=checkin.energy_score,
+            note=checkin.note or "",
+        )
+        session.add(record)
+    else:
+        record.mood_score = checkin.mood_score
+        record.anxiety_score = checkin.anxiety_score
+        record.sleep_hours = checkin.sleep_hours
+        record.energy_score = checkin.energy_score
+        record.note = checkin.note or ""
+    # 埋点放在构造完整之后：record_usage_event 内部 flush，半成品对象会触发 NOT NULL
+    if is_new:
+        event_type = "checkin_backfilled" if checkin.checkin_date else "checkin_created"
+        record_usage_event(session, user_id, event_type)
     session.commit()
     session.refresh(record)
     return record
 
 
-def get_recent_checkins(
-    session: Session, user_id: str, limit: int = 7
-) -> list[CheckinRecord]:
+def get_recent_checkins(session: Session, user_id: str, limit: int = 7) -> list[CheckinRecord]:
     stmt = (
         select(CheckinRecord)
         .where(CheckinRecord.user_id == user_id)
@@ -368,9 +519,20 @@ def get_recent_checkins(
     return list(session.execute(stmt).scalars())
 
 
-def save_weekly_report(
-    session: Session, user_id: str, summary: str
-) -> WeeklyReportRecord:
+def get_checkins_since(session: Session, user_id: str, *, days: int = 30) -> list[CheckinRecord]:
+    """近 N 天打卡记录，按日期倒序（记录查看用，笔记只返回给用户本人）。"""
+    cutoff = date.today() - timedelta(days=days)  # noqa: DTZ011
+    stmt = (
+        select(CheckinRecord)
+        .where(CheckinRecord.user_id == user_id)
+        .where(CheckinRecord.checkin_date >= cutoff)
+        .order_by(desc(CheckinRecord.checkin_date), desc(CheckinRecord.created_at))
+        .limit(days)
+    )
+    return list(session.execute(stmt).scalars())
+
+
+def save_weekly_report(session: Session, user_id: str, summary: str) -> WeeklyReportRecord:
     record = WeeklyReportRecord(user_id=user_id, summary=summary)
     session.add(record)
     session.commit()

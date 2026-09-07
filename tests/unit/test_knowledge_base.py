@@ -12,9 +12,7 @@ from psych_support_bot.ai.tools.knowledge_base import get_knowledge_context
 
 
 def test_detect_topics_prioritizes_relevant_matches() -> None:
-    topics = detect_topics(
-        "I feel burned out, exhausted, and keep procrastinating because I am overwhelmed."
-    )
+    topics = detect_topics("I feel burned out, exhausted, and keep procrastinating because I am overwhelmed.")
 
     assert "burnout" in topics
     assert "procrastination" in topics
@@ -30,10 +28,7 @@ def test_retrieve_entries_returns_indexed_matches() -> None:
 
     entry_ids = {entry.entry_id for entry in entries}
     assert any(entry_id.startswith("dbt-exercise:tipp_full") for entry_id in entry_ids)
-    assert any(
-        entry_id.startswith("psychoeducation:panic_attacks_overview")
-        for entry_id in entry_ids
-    )
+    assert any(entry_id.startswith("psychoeducation:panic_attacks_overview") for entry_id in entry_ids)
 
 
 def test_intervention_context_includes_indexed_knowledge() -> None:
@@ -44,7 +39,7 @@ def test_intervention_context_includes_indexed_knowledge() -> None:
     )
 
     assert "Detected topics:" in context
-    assert "Grounded references:" in context
+    assert "Background for you to weave into your own empathic wording" in context
     assert "DBT TIPP" in context
 
 
@@ -55,7 +50,7 @@ def test_crisis_context_includes_indexed_resources() -> None:
         user_message="I don't want to be here anymore.",
     )
 
-    assert "Grounded references:" in context
+    assert "Background for you to weave into your own empathic wording" in context
     assert "988 Suicide and Crisis Lifeline" in context
 
 
@@ -70,9 +65,7 @@ def test_build_index_includes_local_runtime_corpus(monkeypatch) -> None:
         treatment_modalities = ("cbt_i",)
         audience = ("adult",)
         chapter_hint = "Chapter 3 Sleep Restriction"
-        content = (
-            "Local CBT-I chapter discussing stimulus control and sleep restriction."
-        )
+        content = "Local CBT-I chapter discussing stimulus control and sleep restriction."
         url = "local://cbt_sleep_manual.pdf"
 
     monkeypatch.setattr(
@@ -81,7 +74,7 @@ def test_build_index_includes_local_runtime_corpus(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         "psych_support_bot.ai.knowledge.index.load_learning_notes",
-        lambda: [],
+        list,
     )
 
     entries = build_knowledge_index()
@@ -105,7 +98,7 @@ def test_build_index_includes_active_learning_notes(monkeypatch) -> None:
 
     monkeypatch.setattr(
         "psych_support_bot.ai.knowledge.index.load_all_corpora",
-        lambda: [],
+        list,
     )
     monkeypatch.setattr(
         "psych_support_bot.ai.knowledge.index.load_learning_notes",
@@ -120,7 +113,7 @@ def test_build_index_includes_active_learning_notes(monkeypatch) -> None:
 def test_context_surfaces_synthesized_takeaways(monkeypatch) -> None:
     monkeypatch.setattr(
         "psych_support_bot.ai.tools.knowledge_base.retrieve_knowledge_entries",
-        lambda user_message, mode, risk_level, limit=5: [
+        lambda user_message, mode, risk_level, limit=5, extra_topics=None: [
             KnowledgeEntry(
                 entry_id="learning:anxiety",
                 title="Active Learning Note: Anxiety",
@@ -293,3 +286,48 @@ def test_knowledge_index_refreshes_from_updated_corpus_files(
 
     assert any(entry.entry_id == "local:second:1" for entry in second)
     assert not any(entry.entry_id == "local:first:1" for entry in second)
+
+
+def test_detect_topics_recognizes_relaxation_intent() -> None:
+    assert "relaxation" in detect_topics("我想放松一下")
+    assert "relaxation" in detect_topics("Can you teach me some calm breathing exercises?")
+
+
+def test_relaxation_messages_retrieve_practice_pointer_entries() -> None:
+    entries = retrieve_knowledge_entries(
+        "我想放松一下，有没有什么平静的方法？",
+        mode="support",
+        risk_level="low",
+        limit=5,
+    )
+
+    pointer_ids = {entry.entry_id for entry in entries if entry.source == "practice_pointer"}
+    assert "practice-pointer:panic_grounding_5_4_3_2_1" in pointer_ids
+
+    grounding = next(entry for entry in entries if entry.entry_id == "practice-pointer:panic_grounding_5_4_3_2_1")
+    assert "Exercises panel" in grounding.action_hint
+    assert "panic_grounding_5_4_3_2_1" in grounding.action_hint
+
+
+def test_relaxation_pointer_entries_present_in_index() -> None:
+    index = get_knowledge_index()
+    pointers = {entry.entry_id for entry in index if entry.source == "practice_pointer"}
+
+    assert {
+        "practice-pointer:panic_grounding_5_4_3_2_1",
+        "practice-pointer:sleep_wind_down",
+        "practice-pointer:dbt_tipp",
+    } <= pointers
+
+
+def test_crisis_retrieval_unaffected_by_relaxation_topic() -> None:
+    entries = retrieve_knowledge_entries(
+        "我撑不下去了",
+        mode="crisis",
+        risk_level="high",
+        limit=4,
+    )
+
+    entry_ids = [entry.entry_id for entry in entries]
+    assert any(entry_id.startswith("crisis:") for entry_id in entry_ids)
+    assert not any(entry_id.startswith("practice-pointer:") for entry_id in entry_ids)

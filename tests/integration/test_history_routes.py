@@ -2,7 +2,6 @@ from fastapi.testclient import TestClient
 
 from psych_support_bot.app import app
 
-
 client = TestClient(app)
 
 
@@ -14,9 +13,7 @@ def test_history_and_message_routes() -> None:
     assert response.status_code == 200
     session_id = response.json()["session_id"]
 
-    history = client.get(
-        "/v1/conversations/history", params={"user_id": "history-user"}
-    )
+    history = client.get("/v1/conversations/history", params={"user_id": "history-user"})
     assert history.status_code == 200
     assert history.json()
 
@@ -31,8 +28,6 @@ def test_risk_events_route() -> None:
         json={"user_id": "risk-user", "message": "I want to die and hurt myself"},
     )
 
-    risk_events = client.get(
-        "/v1/conversations/risk-events", params={"user_id": "risk-user"}
-    )
+    risk_events = client.get("/v1/conversations/risk-events", params={"user_id": "risk-user"})
     assert risk_events.status_code == 200
     assert risk_events.json()

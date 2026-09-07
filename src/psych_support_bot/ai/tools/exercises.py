@@ -5,6 +5,7 @@ from typing import Any
 from psych_support_bot.ai.knowledge.act import ACT_EXERCISES as KNOWLEDGE_ACT_EXERCISES
 from psych_support_bot.ai.knowledge.cbt import CBT_EXERCISES as KNOWLEDGE_CBT_EXERCISES
 from psych_support_bot.ai.knowledge.dbt import DBT_EXERCISES as KNOWLEDGE_DBT_EXERCISES
+from psych_support_bot.ai.tools.exercises_zh import EXERCISES_ZH
 
 CBT_EXERCISES = {
     "thought_record": {
@@ -133,22 +134,18 @@ def _normalize_exercise(exercise: Any) -> dict[str, Any]:
 
 def _knowledge_exercises() -> dict[str, dict[str, Any]]:
     return {
-        **{
-            f"cbt_{key}": _normalize_exercise(value)
-            for key, value in KNOWLEDGE_CBT_EXERCISES.items()
-        },
-        **{
-            f"act_{key}": _normalize_exercise(value)
-            for key, value in KNOWLEDGE_ACT_EXERCISES.items()
-        },
-        **{
-            f"dbt_{key}": _normalize_exercise(value)
-            for key, value in KNOWLEDGE_DBT_EXERCISES.items()
-        },
+        **{f"cbt_{key}": _normalize_exercise(value) for key, value in KNOWLEDGE_CBT_EXERCISES.items()},
+        **{f"act_{key}": _normalize_exercise(value) for key, value in KNOWLEDGE_ACT_EXERCISES.items()},
+        **{f"dbt_{key}": _normalize_exercise(value) for key, value in KNOWLEDGE_DBT_EXERCISES.items()},
     }
 
 
-def get_exercise_by_tag(tag: str) -> dict[str, Any] | None:
+def get_exercise_by_tag(tag: str, language: str = "") -> dict[str, Any] | None:
+    """按 tag 取练习内容；language="zh" 且有中文版时返回中文版本。
+
+    中文化约定：不做中英对照，按语言出单版本（M3）。无中文版的 tag
+    原样返回英文版。
+    """
     all_exercises = {
         **{f"cbt_{k}": v for k, v in CBT_EXERCISES.items()},
         **{f"act_{k}": v for k, v in ACT_EXERCISES.items()},
@@ -157,7 +154,14 @@ def get_exercise_by_tag(tag: str) -> dict[str, Any] | None:
         **{f"panic_{k}": v for k, v in PANIC_STABILIZATION.items()},
         **_knowledge_exercises(),
     }
-    return all_exercises.get(tag)
+    exercise = all_exercises.get(tag)
+    if exercise is None:
+        return None
+    if language == "zh":
+        zh = EXERCISES_ZH.get(tag)
+        if zh is not None:
+            return {**exercise, **zh}
+    return exercise
 
 
 def list_all_exercises() -> dict[str, list[str]]:
@@ -166,33 +170,60 @@ def list_all_exercises() -> dict[str, list[str]]:
         "cbt": sorted(
             {
                 *(CBT_EXERCISES.keys()),
-                *(
-                    key.removeprefix("cbt_")
-                    for key in knowledge
-                    if key.startswith("cbt_")
-                ),
+                *(key.removeprefix("cbt_") for key in knowledge if key.startswith("cbt_")),
             }
         ),
         "act": sorted(
             {
                 *(ACT_EXERCISES.keys()),
-                *(
-                    key.removeprefix("act_")
-                    for key in knowledge
-                    if key.startswith("act_")
-                ),
+                *(key.removeprefix("act_") for key in knowledge if key.startswith("act_")),
             }
         ),
         "dbt": sorted(
             {
                 *(DBT_EXERCISES.keys()),
-                *(
-                    key.removeprefix("dbt_")
-                    for key in knowledge
-                    if key.startswith("dbt_")
-                ),
+                *(key.removeprefix("dbt_") for key in knowledge if key.startswith("dbt_")),
             }
         ),
         "sleep": list(SLEEP_HYGIENE.keys()),
         "panic": list(PANIC_STABILIZATION.keys()),
     }
+
+
+# M3 对话图联动：用户消息 → 练习完成识别。
+# 关键词只映射练习库真实存在的 tag；识别不了返回 None——
+# 宁可漏记一条，也不把没做过的练习记到用户名下。
+_EXERCISE_TAG_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("cbt_thought_record", ("想法记录", "thought record")),
+    ("cbt_behavioral_activation", ("行为激活", "behavioral activation")),
+    ("act_defusion", ("认知解离", "解离练习", "defusion")),
+    ("act_values_clari", ("价值观澄清", "values clarification")),
+    ("dbt_tipp", ("tipp",)),
+    ("dbt_wise_mind", ("智慧心", "wise mind")),
+    ("sleep_wind_down", ("睡前仪式", "睡前放松", "wind down")),
+    ("panic_grounding_5_4_3_2_1", ("54321", "5-4-3-2-1", "接地练习", "grounding exercise")),
+]
+
+_EXERCISE_COMPLETION_PHRASES = (
+    "做完了",
+    "完成了",
+    "试过了",
+    "练完了",
+    "做了一遍",
+    "做完了一遍",
+    "finished the",
+    "completed the",
+    "did the exercise",
+    "tried the exercise",
+)
+
+
+def detect_completed_exercise(text: str) -> str | None:
+    """识别用户消息中的“完成练习”信号，返回练习 tag 或 None。"""
+    lowered = (text or "").lower()
+    if not any(phrase in lowered for phrase in _EXERCISE_COMPLETION_PHRASES):
+        return None
+    for tag, keywords in _EXERCISE_TAG_KEYWORDS:
+        if any(keyword in lowered for keyword in keywords):
+            return tag
+    return None

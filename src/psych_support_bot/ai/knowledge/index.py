@@ -1,7 +1,6 @@
 """Structured index and retrieval helpers for psychological knowledge."""
 
 from dataclasses import dataclass
-from pathlib import Path
 
 from psych_support_bot.ai.knowledge.act import ACT_EXERCISES
 from psych_support_bot.ai.knowledge.cbt import CBT_EXERCISES, CBT_INTERVENTION_GUIDES
@@ -18,7 +17,6 @@ from psych_support_bot.knowledge_ingestion import (
     load_all_corpora,
     load_learning_notes,
 )
-
 
 TOPIC_KEYWORDS = {
     "anxiety": [
@@ -140,6 +138,23 @@ TOPIC_KEYWORDS = {
         "逃避",
         "开始不了",
         "卡住了",
+        # B1: focus/concentration keywords merged into procrastination (knowledge freeze)
+        "走神",
+        "分心",
+        "无法集中",
+        "看不进书",
+        "坐不住",
+        "concentration",
+        "distracted",
+        "can't focus",
+        "不专注",
+        "注意力散",
+        # B1: Move behavioral-execution focus keywords to procrastination
+        "注意力不集中",
+        "专注不了",
+        "看不进去",
+        "注意力涣散",
+        "无法专心",
     ],
     "rumination": [
         "ruminating",
@@ -207,6 +222,13 @@ TOPIC_KEYWORDS = {
         "提不起劲",
         "停摆",
         "冻结住了",
+        # B1: Focus keywords that are motivation-related (internal drive)
+        "没干劲",
+        "不想做",
+        "缺乏动力",
+        "can't concentrate",
+        "can't pay attention",
+        "mind wandering",
     ],
     "social_anxiety": [
         "social anxiety",
@@ -275,6 +297,34 @@ TOPIC_KEYWORDS = {
         "依赖",
         "成瘾",
         "戒断",
+    ],
+    # 调节/放松意图：非危机的"想缓缓"类消息此前检不出任何主题，知识层
+    # 无从接手。词汇聚焦意图（想放松/平静下来），不与 panic 的生理症状词
+    # 重叠，避免惊恐发作消息被分流到放松内容。
+    "relaxation": [
+        "relax",
+        "relaxation",
+        "calm down",
+        "calming",
+        "soothing",
+        "unwind",
+        "decompress",
+        "breathing exercise",
+        "mindfulness",
+        "meditation",
+        "放松",
+        "平静",
+        "静一静",
+        "缓缓",
+        "缓一缓",
+        "平复",
+        "安定下来",
+        "松口气",
+        "舒压",
+        "正念",
+        "冥想",
+        "深呼吸",
+        "呼吸练习",
     ],
 }
 
@@ -420,8 +470,8 @@ def build_knowledge_index() -> list[KnowledgeEntry]:
     }
 
     for exercise_id, exercise in CBT_EXERCISES.items():
-        title = getattr(exercise, "name")
-        description = getattr(exercise, "description")
+        title = exercise.name
+        description = exercise.description
         entries.append(
             _entry(
                 entry_id=f"cbt-exercise:{exercise_id}",
@@ -429,9 +479,7 @@ def build_knowledge_index() -> list[KnowledgeEntry]:
                 source="cbt_exercise",
                 topics=tuple(exercise_topic_map.get(exercise_id, ("stress",))),
                 modes=("intervention", "planning"),
-                keywords=_topic_keywords(
-                    tuple(exercise_topic_map.get(exercise_id, ("stress",)))
-                ),
+                keywords=_topic_keywords(tuple(exercise_topic_map.get(exercise_id, ("stress",)))),
                 content=description,
                 action_hint=f"Exercise tag: cbt_{exercise_id}",
             )
@@ -445,9 +493,7 @@ def build_knowledge_index() -> list[KnowledgeEntry]:
                 source="act_exercise",
                 topics=tuple(exercise_topic_map.get(exercise_id, ("stress",))),
                 modes=("intervention", "planning"),
-                keywords=_topic_keywords(
-                    tuple(exercise_topic_map.get(exercise_id, ("stress",)))
-                ),
+                keywords=_topic_keywords(tuple(exercise_topic_map.get(exercise_id, ("stress",)))),
                 content=str(exercise["description"]),
                 action_hint=f"Exercise tag: act_{exercise_id}",
             )
@@ -461,9 +507,7 @@ def build_knowledge_index() -> list[KnowledgeEntry]:
                 source="dbt_exercise",
                 topics=tuple(exercise_topic_map.get(exercise_id, ("stress",))),
                 modes=("intervention", "planning", "crisis"),
-                keywords=_topic_keywords(
-                    tuple(exercise_topic_map.get(exercise_id, ("stress",)))
-                ),
+                keywords=_topic_keywords(tuple(exercise_topic_map.get(exercise_id, ("stress",)))),
                 content=str(exercise["description"]),
                 action_hint=f"Exercise tag: dbt_{exercise_id}",
             )
@@ -552,6 +596,54 @@ def build_knowledge_index() -> list[KnowledgeEntry]:
         )
     )
 
+    # 调节/放松类指针条目：练习库里的稳定化练习（tools/exercises.py）此前
+    # 不在知识检索通道——"我想放松一下"这类消息既检不出主题，索引里也没
+    # 有可命中的条目。这里为最对口的三个练习建"指针"条目：不复制练习全
+    # 文，交付载体仍是练习面板（action_hint 指向 tag），保持单一事实源。
+    _RELAXATION_POINTER_EXERCISES: tuple[tuple[str, str, str, tuple[str, ...], str, str], ...] = (
+        (
+            "panic_grounding_5_4_3_2_1",
+            "5-4-3-2-1 Grounding",
+            "5-4-3-2-1 接地练习",
+            ("relaxation", "panic", "anxiety"),
+            "Anchors attention to the present through the five senses.",
+            "用五感把注意力锚回当下，从慌乱里稳住。",
+        ),
+        (
+            "sleep_wind_down",
+            "Sleep Wind-Down Routine",
+            "睡前收尾流程",
+            ("relaxation", "sleep"),
+            "A consistent pre-sleep ritual that signals the body it is time to rest.",
+            "一套固定的睡前流程，给身体一个'该休息了'的信号。",
+        ),
+        (
+            "dbt_tipp",
+            "DBT TIPP",
+            "DBT TIPP 降温",
+            ("relaxation", "panic", "anger"),
+            "Rapid physiological down-regulation for intense emotion spikes.",
+            "高强度情绪飙升时的快速生理降温手段。",
+        ),
+    )
+    for _tag, _name_en, _name_zh, _topics, _desc_en, _desc_zh in _RELAXATION_POINTER_EXERCISES:
+        entries.append(
+            _entry(
+                entry_id=f"practice-pointer:{_tag}",
+                title=f"{_name_en} / {_name_zh}",
+                source="practice_pointer",
+                topics=_topics,
+                # support 是放松请求的主通道；intervention 便于引导时直接引用。
+                modes=("support", "intervention"),
+                keywords=(*_topic_keywords(_topics), "relax", "calm", "放松", "平静"),
+                content=f"{_desc_en} {_desc_zh}",
+                action_hint=(
+                    f"Available in the Exercises panel as tag '{_tag}'. "
+                    "Offer to walk through it together, or point the user there."
+                ),
+            )
+        )
+
     for chunk in load_all_corpora():
         details: list[str] = [f"Source: {chunk.publisher}. URL: {chunk.url}"]
         if chunk.chapter_hint:
@@ -567,10 +659,10 @@ def build_knowledge_index() -> list[KnowledgeEntry]:
                 source=f"external_{chunk.publisher.lower()}",
                 topics=chunk.topics,
                 modes=chunk.modes,
-                keywords=tuple(
-                    dict.fromkeys([*chunk.keywords, *_topic_keywords(chunk.topics)])
-                ),
-                content=chunk.content,
+                keywords=tuple(dict.fromkeys([*chunk.keywords, *_topic_keywords(chunk.topics)])),
+                # 语料条目与策展条目同口径截断（_entry 内部再截 summary）：
+                # 全站抓取的长文整段进 prompt 会挤占回复预算。
+                content=_clip(chunk.content, 1200),
                 action_hint=" | ".join(details),
             )
         )
@@ -593,9 +685,7 @@ def build_knowledge_index() -> list[KnowledgeEntry]:
                 source="active_learning",
                 topics=note.topics,
                 modes=note.modes,
-                keywords=tuple(
-                    dict.fromkeys([*note.keywords, *_topic_keywords(note.topics)])
-                ),
+                keywords=tuple(dict.fromkeys([*note.keywords, *_topic_keywords(note.topics)])),
                 content=note.summary,
                 action_hint=" | ".join(details),
             )
@@ -605,7 +695,6 @@ def build_knowledge_index() -> list[KnowledgeEntry]:
 
 
 def _knowledge_index_signature() -> tuple[tuple[str, bool, int, int], ...]:
-    from psych_support_bot.knowledge_ingestion import knowledge_data_dir
 
     data_dir = knowledge_data_dir()
     corpus_files = (
@@ -643,23 +732,33 @@ def get_knowledge_index(*, force_reload: bool = False) -> list[KnowledgeEntry]:
     return _KNOWLEDGE_INDEX_CACHE
 
 
+# 同源多样性上限与 doc 键规则（retrieve_knowledge_entries 使用）：
+# entry_id 形如 fetched:{doc}:chunkN / public:{doc}:{section}，前两段即册子键。
+_MAX_PER_SOURCE_DOC = 2
+
+
+def _source_doc_key(entry_id: str) -> str:
+    parts = entry_id.split(":")
+    return ":".join(parts[:2]) if len(parts) >= 2 else entry_id
+
+
 def retrieve_knowledge_entries(
     user_message: str,
     mode: str,
     risk_level: str,
     *,
     limit: int = 4,
+    extra_topics: list[str] | None = None,
 ) -> list[KnowledgeEntry]:
-    topics = detect_topics(user_message)
+    # LLM 语义 topics 排前（闭集校验过，精度更高），关键词 topics 兜底在后。
+    topics = list(dict.fromkeys([*(extra_topics or []), *detect_topics(user_message)]))
     normalized, compact = _normalize_text(user_message)
     scored: list[tuple[int, KnowledgeEntry]] = []
 
     for entry in get_knowledge_index():
         score = 0
         topical_relevance = 0
-        if mode in entry.modes:
-            score += 4
-        elif mode == "crisis" and entry.source == "crisis":
+        if (mode in entry.modes) or (mode == "crisis" and entry.source == "crisis"):
             score += 4
 
         if entry.source == "psychoeducation" and mode in {
@@ -710,18 +809,12 @@ def retrieve_knowledge_entries(
         topical_relevance += topic_hits
 
         keyword_hits = sum(
-            1
-            for keyword in entry.keywords
-            if keyword and _contains_keyword(normalized, compact, keyword)
+            1 for keyword in entry.keywords if keyword and _contains_keyword(normalized, compact, keyword)
         )
         score += min(keyword_hits, 4)
         topical_relevance += keyword_hits
 
-        title_hits = sum(
-            1
-            for token in _topic_keywords(entry.topics)
-            if _contains_keyword(normalized, compact, token)
-        )
+        title_hits = sum(1 for token in _topic_keywords(entry.topics) if _contains_keyword(normalized, compact, token))
         if title_hits and _contains_keyword(normalized, compact, entry.title):
             score += 3
             topical_relevance += 1
@@ -732,11 +825,7 @@ def retrieve_knowledge_entries(
             score += 3
         if mode == "crisis" and entry.entry_id == f"crisis:{risk_level}":
             score += 8
-        if (
-            entry.source == "crisis"
-            and mode != "crisis"
-            and risk_level not in {"high", "critical"}
-        ):
+        if entry.source == "crisis" and mode != "crisis" and risk_level not in {"high", "critical"}:
             score -= 6
         if topical_relevance == 0 and mode != "crisis" and entry.source != "crisis":
             continue
@@ -747,11 +836,78 @@ def retrieve_knowledge_entries(
 
     selected: list[KnowledgeEntry] = []
     seen_ids: set[str] = set()
+    # 同源多样性：168 条外部切片本就来自 15 个册子，同一手册的兄弟 chunk
+    # （如 nimh_social_anxiety_brochure 的 chunk 1/10/11/12）内容高度重叠，
+    # 不加控制会把 limit 名额刷成单册子专场。每册最多保留 2 条，其余名额
+    # 让给排序中后续的不同来源。
+    doc_counts: dict[str, int] = {}
     for _, entry in scored:
         if entry.entry_id in seen_ids:
             continue
+        doc_key = _source_doc_key(entry.entry_id)
+        if doc_counts.get(doc_key, 0) >= _MAX_PER_SOURCE_DOC:
+            continue
         selected.append(entry)
         seen_ids.add(entry.entry_id)
+        doc_counts[doc_key] = doc_counts.get(doc_key, 0) + 1
         if len(selected) >= limit:
             break
     return selected
+
+
+# ---------------------------------------------------------------------------
+# 渲染层（P3-B 统一：检索与渲染同层，tools/knowledge_base 只留门面）
+# ---------------------------------------------------------------------------
+
+
+def render_entry(entry_id: str, title: str, summary: str, action_hint: str) -> str:
+    rendered = f"{entry_id}: {title}. {summary}"
+    if action_hint:
+        rendered += f" Action hint: {action_hint}"
+    return rendered
+
+
+def render_knowledge_sections(entries: list[KnowledgeEntry]) -> list[str]:
+    """把检索结果渲染为分区文本段（takeaways / psychoeducation / grounded）。
+
+    原 tools/knowledge_base._grouped_entries_text 迁此——渲染与检索同层，
+    门面只做组装、预算与埋点。
+    """
+    learning_entries = [entry for entry in entries if entry.source == "active_learning"]
+    # active_learning 已单独渲染进 Synthesized takeaways 时不再重复进
+    # Psychoeducation notes——同一 entry 双区渲染既冗余又挤占预算。
+    psychoeducation_sources = {"psychoeducation", "foundation"} | (set() if learning_entries else {"active_learning"})
+    psychoeducation_entries = [entry for entry in entries if entry.source in psychoeducation_sources]
+    grounded_entries = [
+        entry for entry in entries if entry.source not in {"active_learning", "psychoeducation", "foundation"}
+    ]
+    sections: list[str] = []
+    # 知识区语气指令：这些是给模型化用的背景，不是给用户播报的资料——
+    # "Grounded references" 式渲染头会诱发'根据资料说'的播报腔（机械感根因之一）。
+    usage_note = (
+        "Background for you to weave into your own empathic wording — never cite sources, "
+        "list references, or announce 'according to...' in the visible reply:"
+    )
+
+    if learning_entries:
+        rendered_learning = [
+            render_entry(entry.entry_id, entry.title, entry.summary, entry.action_hint)
+            for entry in learning_entries[:2]
+        ]
+        sections.append("Synthesized takeaways: " + " ".join(rendered_learning))
+
+    if psychoeducation_entries:
+        rendered_psychoeducation = [
+            render_entry(entry.entry_id, entry.title, entry.summary, entry.action_hint)
+            for entry in psychoeducation_entries[:3]
+        ]
+        sections.append("Psychoeducation notes: " + " ".join(rendered_psychoeducation))
+
+    if grounded_entries:
+        rendered_grounded = [
+            render_entry(entry.entry_id, entry.title, entry.summary, entry.action_hint)
+            for entry in grounded_entries[:5]
+        ]
+        sections.append(usage_note + " " + " ".join(rendered_grounded))
+
+    return sections

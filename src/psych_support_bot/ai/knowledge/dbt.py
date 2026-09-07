@@ -169,16 +169,21 @@ DBT_MODULES = {
             "DEAR_MAN": {
                 "name": "DEAR MAN: Assertive Communication",
                 "description": "A structured approach for asking for something, saying no, or negotiating conflict.",
-                "steps": {
-                    "D": "Describe: Describe the situation factually. 'When you... [fact].'",
-                    "E": "Express: Express how you feel about it. 'I feel...'",
-                    "A": "Assert: State clearly what you want or need. 'I would like...'",
-                    "R": "Reinforce: Explain the benefit of the request. "
-                    "'This would help because...' or 'I will appreciate it because...'",
-                    "M": "Mindful: Stay on topic. Do not get derailed by other issues or manipulations.",
-                    "A": "Appear confident: Use steady eye contact, calm posture, clear voice.",
-                    "N": "Negotiate: Be willing to compromise. Offer alternatives.",
-                },
+                "steps": [
+                    {"letter": "D", "text": "Describe: Describe the situation factually. 'When you... [fact].'"},
+                    {"letter": "E", "text": "Express: Express how you feel about it. 'I feel...'"},
+                    {"letter": "A", "text": "Assert: State clearly what you want or need. 'I would like...'"},
+                    {
+                        "letter": "R",
+                        "text": "Reinforce: Explain the benefit of the request. 'This would help because...' or 'I will appreciate it because...'",
+                    },
+                    {
+                        "letter": "M",
+                        "text": "Mindful: Stay on topic. Do not get derailed by other issues or manipulations.",
+                    },
+                    {"letter": "A", "text": "Appear confident: Use steady eye contact, calm posture, clear voice."},
+                    {"letter": "N", "text": "Negotiate: Be willing to compromise. Offer alternatives."},
+                ],
                 "examples": [
                     "Asking for help: 'When I have a lot on my plate, I feel overwhelmed. "
                     "I would like to ask for your help with the presentation. "
@@ -357,14 +362,11 @@ DBT_EXERCISES = {
             "Walk through the full framework step by step."
         ),
         "steps": [
-            "D — Describe: What is the specific situation you want to address? "
-            "Describe it factually without judgment.",
-            "E — Express: How does this situation make you feel? "
-            "Name the emotion and its intensity.",
+            "D — Describe: What is the specific situation you want to address? Describe it factually without judgment.",
+            "E — Express: How does this situation make you feel? Name the emotion and its intensity.",
             "A — Assert: What specifically are you asking for, or what are you saying no to? "
             "State it clearly and directly.",
-            "R — Reinforce: Why would fulfilling this request benefit both of you? "
-            "Explain the positive outcome.",
+            "R — Reinforce: Why would fulfilling this request benefit both of you? Explain the positive outcome.",
             "M — Mindful: If the conversation gets derailed, how will you bring it back to the topic?",
             "A — Appear confident: Practice maintaining calm eye contact and a steady voice.",
             "N — Negotiate: What are you willing to compromise on? "
