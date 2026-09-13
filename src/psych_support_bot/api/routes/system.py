@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 
 from psych_support_bot.infra.config.settings import get_settings
 from psych_support_bot.infra.telemetry.tracing import tracing_config
+from psych_support_bot.infra.voice.adapter import get_stt_config, get_tts_config
 
 router = APIRouter(prefix="/system", tags=["system"])
 
@@ -10,10 +11,18 @@ router = APIRouter(prefix="/system", tags=["system"])
 @router.get("/info")
 def system_info() -> dict[str, object]:
     settings = get_settings()
+    # 语音模型实况：配置了才展示（未配置语音时前端隐藏对应行）
+    stt = get_stt_config()
+    tts = get_tts_config()
     return {
         "app_name": settings.app_name,
         "environment": settings.environment,
         "default_model": settings.openai_model,
+        "models": {
+            "llm": settings.openai_model,
+            "stt": f"{stt.model} ({stt.provider})" if stt else "",
+            "tts": f"{tts.model} ({tts.provider})" if tts else "",
+        },
         "workflow": settings.default_conversation_mode,
         "tracing": tracing_config(),
     }
@@ -286,6 +295,24 @@ def chat_playground() -> HTMLResponse:
       messages.scrollTop = messages.scrollHeight;
     }
 
+    // 即时回声气泡：覆盖 LLM 风险分类 + 生成阶段的等待（首感知 <300ms）。
+    // 文案如实传达"收到、正在回应"，避免机器状态词与"请用户配合"式语气。
+    function showEcho() {
+      removeEcho();
+      const bubble = document.createElement("article");
+      bubble.className = "bubble bot";
+      bubble.id = "echoBubble";
+      bubble.style.color = "#6b7280";
+      bubble.textContent = "嗯，我听到了，也在认真想怎么回你";
+      messages.appendChild(bubble);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function removeEcho() {
+      const existing = document.getElementById("echoBubble");
+      if (existing) existing.remove();
+    }
+
     function resetConversation() {
       sessionIdInput.value = "";
       messages.innerHTML = "";
@@ -301,6 +328,7 @@ def chat_playground() -> HTMLResponse:
       if (!message) return;
 
       appendBubble("user", message);
+      showEcho();
       messageInput.value = "";
       sendButton.disabled = true;
       sendButton.textContent = "发送中...";
@@ -323,12 +351,14 @@ def chat_playground() -> HTMLResponse:
         }
 
         sessionIdInput.value = payload.session_id || "";
+        removeEcho();
         appendBubble("bot", payload.reply.text, [
           `mode: ${payload.mode}`,
           `risk: ${payload.risk.risk_level}`,
           `session: ${payload.session_id}`,
         ]);
       } catch (error) {
+        removeEcho();
         appendBubble("bot", `请求失败：${error.message}`, ["error"]);
       } finally {
         sendButton.disabled = false;

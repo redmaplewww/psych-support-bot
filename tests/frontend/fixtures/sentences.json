@@ -1,0 +1,67 @@
+{
+  "_comment": "分句服务端语义 fixture。golden/server 各节钉住服务端 services/conversation.py:_split_complete_sentences 的切分语义（首句软切阈值 14 / 后续句 56 / 半角冒号是软标点）。历史说明：本 fixture 原为前后端双端一致性而设——客户端朗读分句 splitIntoSentences 已随 HTTP 句队列退役（对话朗读二选一收敛到 WS live，见 VOICE_DECISIONS.md D6），golden 节与 client_only 节保留作语义存档，不再有前端消费方。",
+  "golden_both_agree": [
+    { "name": "hard_end_basic", "input": "你好。我很焦虑。", "expected": ["你好。", "我很焦虑。"] },
+    { "name": "hard_end_multi", "input": "第一句！第二句？第三句；", "expected": ["第一句！", "第二句？", "第三句；"] },
+    { "name": "hard_end_newline", "input": "早安。\n晚安。", "expected": ["早安。", "晚安。"] }
+  ],
+  "server_only": [
+    {
+      "name": "first_sentence_soft_min_14_splits_early",
+      "input": "今天上班开了一整天的会累呀，明天还要继续",
+      "first": true,
+      "expected_sentences": ["今天上班开了一整天的会累呀，"],
+      "expected_remainder": "明天还要继续"
+    },
+    {
+      "name": "later_sentence_soft_min_56_no_split",
+      "input": "今天上班开了一整天的会累呀，明天还要继续",
+      "first": false,
+      "expected_sentences": [],
+      "expected_remainder": "今天上班开了一整天的会累呀，明天还要继续"
+    },
+    {
+      "name": "soft_pos_40_fullwidth_colon_first_splits",
+      "input": "我最近晚上总是翻来覆去睡不着脑子里也停不下来各种念头转个不停真的折磨人啊喂呀哦：后面还有话要说",
+      "first": true,
+      "expected_sentences": ["我最近晚上总是翻来覆去睡不着脑子里也停不下来各种念头转个不停真的折磨人啊喂呀哦："],
+      "expected_remainder": "后面还有话要说"
+    },
+    {
+      "name": "soft_pos_40_halfwidth_colon_later_no_split",
+      "input": "我最近晚上总是翻来覆去睡不着脑子里也停不下来各种念头转个不停真的折磨人啊喂呀哦:后面还有话要说",
+      "first": false,
+      "expected_sentences": [],
+      "expected_remainder": "我最近晚上总是翻来覆去睡不着脑子里也停不下来各种念头转个不停真的折磨人啊喂呀哦:后面还有话要说"
+    },
+    {
+      "name": "no_punct_returns_remainder",
+      "input": "今天好累",
+      "first": true,
+      "expected_sentences": [],
+      "expected_remainder": "今天好累"
+    }
+  ],
+  "client_only": [
+    {
+      "name": "client_soft_40_fullwidth_colon_splits",
+      "input": "我最近晚上总是翻来覆去睡不着脑子里也停不下来各种念头转个不停真的折磨人啊喂呀哦：后面还有话要说",
+      "expected": [
+        "我最近晚上总是翻来覆去睡不着脑子里也停不下来各种念头转个不停真的折磨人啊喂呀哦：",
+        "后面还有话要说"
+      ]
+    },
+    {
+      "name": "client_halfwidth_colon_not_soft_keeps_sentence",
+      "input": "我最近晚上总是翻来覆去睡不着脑子里也停不下来各种念头转个不停真的折磨人啊喂呀哦:后面还有话要说",
+      "expected": [
+        "我最近晚上总是翻来覆去睡不着脑子里也停不下来各种念头转个不停真的折磨人啊喂呀哦:后面还有话要说"
+      ]
+    },
+    {
+      "name": "client_flushes_tail_without_hard_end",
+      "input": "今天好累",
+      "expected": ["今天好累"]
+    }
+  ]
+}

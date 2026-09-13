@@ -15,10 +15,11 @@ uv run pytest
 uv run psych-support-bot-evals
 ```
 
-## Docker
+## Docker（服务器部署）
 
 ```bash
-docker compose up --build
+bash deploy.sh          # 构建镜像并启动（Dockerfile.server + docker-compose.server.yml）
+./stop.sh && ./start.sh # 启停控制
 ```
 
-The API starts on `http://localhost:8000`.
+完整流程见根目录《服务器部署说明.md》。

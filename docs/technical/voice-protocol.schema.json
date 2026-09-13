@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "psych-support-bot /v1/voice/tts/live protocol",
+  "description": "client_message=浏览器→服务端 JSON 文本帧；server_event=服务端→浏览器 JSON 文本帧。二进制帧为裸 PCM 音频块（s16le mono，采样率见 ready 事件），不在此建模。",
+  "client_message": {
+    "$defs": {
+      "LiveAbort": {
+        "description": "打断：立即取消上游合成（MiniMax task_cancel）；前端同时掐掉本地连接，\n在途残余帧由连接代次守卫作废。",
+        "properties": {
+          "type": {
+            "const": "abort",
+            "default": "abort",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "LiveAbort",
+        "type": "object"
+      },
+      "LiveEnd": {
+        "description": "本轮结束：say 队列排空后关闭上游合成会话（MiniMax task_finish）。",
+        "properties": {
+          "type": {
+            "const": "end",
+            "default": "end",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "LiveEnd",
+        "type": "object"
+      },
+      "LiveSay": {
+        "description": "合成一句：LLM 流式句直灌，或整轮全文（ttsLiveRound）。空文本由服务端忽略。",
+        "properties": {
+          "type": {
+            "const": "say",
+            "default": "say",
+            "title": "Type",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "LiveSay",
+        "type": "object"
+      }
+    },
+    "discriminator": {
+      "mapping": {
+        "abort": "#/$defs/LiveAbort",
+        "end": "#/$defs/LiveEnd",
+        "say": "#/$defs/LiveSay"
+      },
+      "propertyName": "type"
+    },
+    "oneOf": [
+      {
+        "$ref": "#/$defs/LiveSay"
+      },
+      {
+        "$ref": "#/$defs/LiveEnd"
+      },
+      {
+        "$ref": "#/$defs/LiveAbort"
+      }
+    ]
+  },
+  "server_event": {
+    "$defs": {
+      "LiveAudioFormat": {
+        "description": "音频面声明：format=pcm（裸 PCM s16le mono），sample_rate 由供应商决定\n（MiniMax 32k / MiMo 24k）。前端按声明值重采样到设备采样率。",
+        "properties": {
+          "format": {
+            "const": "pcm",
+            "default": "pcm",
+            "title": "Format",
+            "type": "string"
+          },
+          "sample_rate": {
+            "title": "Sample Rate",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sample_rate"
+        ],
+        "title": "LiveAudioFormat",
+        "type": "object"
+      },
+      "LiveError": {
+        "description": "上游故障（配额/风控/挂起）。前端契约：把剩余未读句子转投 HTTP 句队列\n续读（后半段不静默消失），并弃用本页 WS 通道（TTS_LIVE.failed = true）。",
+        "properties": {
+          "type": {
+            "const": "error",
+            "default": "error",
+            "title": "Type",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "LiveError",
+        "type": "object"
+      },
+      "LiveReady": {
+        "description": "会话就绪 + 音频面声明。此后二进制帧即音频块，可首块即播。",
+        "properties": {
+          "type": {
+            "const": "ready",
+            "default": "ready",
+            "title": "Type",
+            "type": "string"
+          },
+          "audio": {
+            "$ref": "#/$defs/LiveAudioFormat"
+          },
+          "tts": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/LiveTtsProfile"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "audio"
+        ],
+        "title": "LiveReady",
+        "type": "object"
+      },
+      "LiveRoundEnd": {
+        "description": "本轮终点：音频面此后不再有帧，前端可安全收束（等本地队列播完撤黄框）。\n上游错误路径会在 error 之后补发本事件，保证前端总能收到终态。",
+        "properties": {
+          "type": {
+            "const": "round_end",
+            "default": "round_end",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "LiveRoundEnd",
+        "type": "object"
+      },
+      "LiveSentenceEnd": {
+        "description": "当前句音频边界：MiMo=我们的 say 粒度（每句合成流末尾）；\nMiniMax=is_final（服务端攒句）。前端以此驱动字幕铺字与下一句入队。",
+        "properties": {
+          "type": {
+            "const": "sentence_end",
+            "default": "sentence_end",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "LiveSentenceEnd",
+        "type": "object"
+      },
+      "LiveTtsProfile": {
+        "description": "TTS 延迟画像：前端据 first_audio_timeout_ms 放宽「无首音」收束上限。\n\n预置音色首包 ~1-2s（6s 收束够）；音色复刻为兼容模式流式——整句合成完\n才返回单块，首包 5-20s，6s 会掐掉整轮（20260912 实证：只读到最短一句）。\n可选字段：旧前端忽略（前向兼容约定）。",
+        "properties": {
+          "first_audio_timeout_ms": {
+            "title": "First Audio Timeout Ms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "first_audio_timeout_ms"
+        ],
+        "title": "LiveTtsProfile",
+        "type": "object"
+      }
+    },
+    "discriminator": {
+      "mapping": {
+        "error": "#/$defs/LiveError",
+        "ready": "#/$defs/LiveReady",
+        "round_end": "#/$defs/LiveRoundEnd",
+        "sentence_end": "#/$defs/LiveSentenceEnd"
+      },
+      "propertyName": "type"
+    },
+    "oneOf": [
+      {
+        "$ref": "#/$defs/LiveReady"
+      },
+      {
+        "$ref": "#/$defs/LiveSentenceEnd"
+      },
+      {
+        "$ref": "#/$defs/LiveRoundEnd"
+      },
+      {
+        "$ref": "#/$defs/LiveError"
+      }
+    ]
+  }
+}

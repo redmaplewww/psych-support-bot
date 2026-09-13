@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from psych_support_bot.api.auth import request_user_id
 from psych_support_bot.domain.reports.trends import TrendResult, compute_user_trends
 from psych_support_bot.infra.db.session import get_db_session
 
@@ -20,10 +21,12 @@ class TrendResponse(BaseModel):
 
 @router.get("/trends", response_model=TrendResponse)
 def get_trends(
-    user_id: str,
+    request: Request,
+    user_id: str = "",
     days: int = 14,
     session: Session = Depends(get_db_session),
 ) -> TrendResponse:
+    user_id = request_user_id(request, user_id)
     result: TrendResult = compute_user_trends(session, user_id, days=days)
     return TrendResponse(
         mood_trend=result.mood_trend,

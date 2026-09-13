@@ -1,7 +1,6 @@
 from psych_support_bot.ai.schemas.messages import ConversationMode, RiskLevel
 from psych_support_bot.ai.utils.text_matching import _contains_keyword, _normalize_text
 
-
 OPEN_EXPLORATION_KEYWORDS = [
     "不知道",
     "说不清",
@@ -104,6 +103,61 @@ EXHAUSTION_KEYWORDS = [
     "burned out",
 ]
 
+# B4.3: Exhaustion subtypes for finer-grained interview strategy.
+# Physical exhaustion: sleep, body, energy depletion → focus on rest, sleep hygiene
+PHYSICAL_EXHAUSTION_KEYWORDS = [
+    "身体累",
+    "体力不支",
+    "没力气",
+    "睡不够",
+    "睡不好",
+    "没睡够",
+    "肌肉酸痛",
+    "头晕",
+    "身体吃不消",
+    "physically tired",
+    "physically exhausted",
+    "no energy",
+    "can't sleep",
+    "body aches",
+    "dizzy",
+]
+
+# Emotional exhaustion: mental, relational, emotional drain → focus on boundaries, emotional processing
+EMOTIONAL_EXHAUSTION_KEYWORDS = [
+    "心累",
+    "心力交瘁",
+    "精神疲惫",
+    "情绪耗竭",
+    "心慌",
+    "崩溃",
+    "压抑",
+    "喘不过气",
+    "绷着",
+    "内耗",
+    "心碎",
+    "emo",
+    "emotionally drained",
+    "emotionally exhausted",
+    "mentally exhausted",
+    "burnout",
+    "overwhelmed",
+    "emotionally depleted",
+]
+
+# Relational/social exhaustion: caused by interpersonal interactions
+RELATIONAL_EXHAUSTION_KEYWORDS = [
+    "社交疲劳",
+    "应付人",
+    "不想见人",
+    "人际关系累",
+    "社交耗竭",
+    "socially drained",
+    "socially exhausted",
+    "people fatigue",
+    "socially tired",
+]
+
 
 def _matches_any(normalized: str, compact: str, keywords: list[str]) -> bool:
     return any(_contains_keyword(normalized, compact, keyword) for keyword in keywords)
@@ -114,6 +168,7 @@ def determine_interview_process(
     user_message: str,
     mode: ConversationMode,
     risk_level: RiskLevel,
+    turn_count: int = 0,
 ) -> dict[str, str | bool]:
     normalized, compact = _normalize_text(user_message)
     has_open_exploration = _matches_any(normalized, compact, OPEN_EXPLORATION_KEYWORDS)
@@ -123,17 +178,21 @@ def determine_interview_process(
     has_avoidance = _matches_any(normalized, compact, AVOIDANCE_KEYWORDS)
     has_absolutist = _matches_any(normalized, compact, ABSOLUTIST_KEYWORDS)
     has_minimization = _matches_any(normalized, compact, MINIMIZATION_KEYWORDS)
-    has_relational_disclosure = _matches_any(
-        normalized, compact, RELATIONAL_DISCLOSURE_KEYWORDS
+    has_relational_disclosure = _matches_any(normalized, compact, RELATIONAL_DISCLOSURE_KEYWORDS)
+    has_exhaustion = (
+        _matches_any(normalized, compact, EXHAUSTION_KEYWORDS)
+        or _matches_any(normalized, compact, PHYSICAL_EXHAUSTION_KEYWORDS)
+        or _matches_any(normalized, compact, EMOTIONAL_EXHAUSTION_KEYWORDS)
+        or _matches_any(normalized, compact, RELATIONAL_EXHAUSTION_KEYWORDS)
     )
-    has_exhaustion = _matches_any(normalized, compact, EXHAUSTION_KEYWORDS)
+    # B4.3: Detect exhaustion subtypes
+    has_physical_exhaustion = _matches_any(normalized, compact, PHYSICAL_EXHAUSTION_KEYWORDS)
+    has_emotional_exhaustion = _matches_any(normalized, compact, EMOTIONAL_EXHAUSTION_KEYWORDS)
+    has_relational_exhaustion = _matches_any(normalized, compact, RELATIONAL_EXHAUSTION_KEYWORDS)
     has_pattern = has_strong_pattern or (
-        has_weak_pattern
-        and (has_contradiction or has_absolutist or has_relational_disclosure)
+        has_weak_pattern and (has_contradiction or has_absolutist or has_relational_disclosure)
     )
-    has_actionable_avoidance = has_avoidance and (
-        has_relational_disclosure or not has_exhaustion
-    )
+    has_actionable_avoidance = has_avoidance and (has_relational_disclosure or not has_exhaustion)
 
     stage = "engagement"
     question_strategy = "open"
@@ -159,12 +218,16 @@ def determine_interview_process(
     if has_open_exploration:
         stage = "exploration"
         question_strategy = "open"
-        loop_hint = "Use open questions to uncover the situation, then reflect back the user's own words before narrowing."
+        loop_hint = (
+            "Use open questions to uncover the situation, then reflect back the user's own words before narrowing."
+        )
 
     if has_pattern:
         stage = "pattern_analysis"
         question_strategy = "looping"
-        loop_hint = "Track sequence: trigger -> thought -> feeling -> action -> consequence, and revisit the unclear link."
+        loop_hint = (
+            "Track sequence: trigger -> thought -> feeling -> action -> consequence, and revisit the unclear link."
+        )
 
     if has_contradiction:
         stage = "hypothesis_testing"
@@ -176,7 +239,9 @@ def determine_interview_process(
         stage = "hypothesis_testing"
         question_strategy = "gentle_challenge"
         challenge_allowed = True
-        loop_hint = "Test absolute conclusions by asking for evidence, exceptions, and what would count as a different outcome."
+        loop_hint = (
+            "Test absolute conclusions by asking for evidence, exceptions, and what would count as a different outcome."
+        )
 
     if has_actionable_avoidance or has_minimization:
         stage = "resistance_exploration"
@@ -190,13 +255,31 @@ def determine_interview_process(
         challenge_allowed = True
         loop_hint = "Map the repeated sequence first, then test the point where the user's explanation becomes contradictory or overly absolute."
 
-    if has_exhaustion and not (
-        has_contradiction or has_absolutist or has_actionable_avoidance
-    ):
+    if has_exhaustion and not (has_contradiction or has_absolutist or has_actionable_avoidance):
         stage = "exploration"
         question_strategy = "open"
         challenge_allowed = False
-        loop_hint = "Clarify whether the exhaustion is physical, emotional, relational, or anticipatory before challenging the user's explanation."
+        # B4.3: Differentiate loop_hint by exhaustion subtype
+        if has_physical_exhaustion:
+            loop_hint = (
+                "Clarify whether the exhaustion is primarily physical (sleep, body, energy). "
+                "Explore sleep patterns, physical activity, and rest quality before "
+                "addressing emotional factors."
+            )
+        elif has_emotional_exhaustion:
+            loop_hint = (
+                "Clarify whether the exhaustion is primarily emotional (mental drain, overwhelm, numbness). "
+                "Explore emotional demands, boundaries, and stressors before "
+                "addressing physical factors."
+            )
+        elif has_relational_exhaustion:
+            loop_hint = (
+                "Clarify whether the exhaustion is primarily relational (social drain, interpersonal demands). "
+                "Explore specific relationships and social contexts that deplete energy before "
+                "addressing other factors."
+            )
+        else:
+            loop_hint = "Clarify whether the exhaustion is physical, emotional, relational, or anticipatory before challenging the user's explanation."
 
     if mode == "planning":
         stage = "planning"
@@ -208,6 +291,32 @@ def determine_interview_process(
         stage = "formulation"
         question_strategy = "clarifying"
         loop_hint = "Clarify what the user has already tried, what changed, and what keeps the problem going before teaching a technique."
+
+    # Stage-floor escalation (fix for stuck-at-engagement): when the keyword
+    # cascade produced nothing and the conversation has been going on for
+    # several turns, advance the stage by depth so the process frame evolves
+    # instead of resetting to engagement every vague short message.
+    if (
+        mode == "support"
+        and risk_level not in {"high", "critical"}
+        and stage == "engagement"
+        and loop_hint.startswith("Start broad")
+        and turn_count >= 2
+    ):
+        if turn_count < 6:
+            stage = "exploration"
+            loop_hint = (
+                "The conversation has moved past opening. Build on what was shared in "
+                "previous turns instead of starting over; explore the thread the user "
+                "kept coming back to."
+            )
+        else:
+            stage = "pattern_analysis"
+            question_strategy = "looping"
+            loop_hint = (
+                "Several turns in: connect recurring themes across previous messages into a "
+                "sequence (trigger -> thought -> feeling), and only deepen where it is still unclear."
+            )
 
     return {
         "interview_stage": stage,

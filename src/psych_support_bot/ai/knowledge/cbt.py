@@ -1,7 +1,6 @@
 """Comprehensive CBT knowledge base with techniques, exercises, and intervention scripts."""
 
 from dataclasses import dataclass, field
-from typing import Literal
 
 
 @dataclass
@@ -201,7 +200,7 @@ CBT_EXERCISES: dict[str, CBTExercise] = {
             "Can you use this thought record again next time you notice strong emotions?",
         ],
     ),
-    " downward_arrow": CBTExercise(
+    "downward_arrow": CBTExercise(
         exercise_id="downward_arrow",
         name="Downward Arrow Technique",
         description=(
@@ -328,8 +327,7 @@ CBT_EXERCISES: dict[str, CBTExercise] = {
         exercise_id="worst_best_realistic",
         name="Worst-Best-Realistic",
         description=(
-            "A three-column exercise that challenges catastrophizing by examining "
-            "the full range of possible outcomes."
+            "A three-column exercise that challenges catastrophizing by examining the full range of possible outcomes."
         ),
         target_symptoms=[
             "anxiety",

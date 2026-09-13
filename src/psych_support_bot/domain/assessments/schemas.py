@@ -24,6 +24,9 @@ class QuestionnaireGuide(BaseModel):
     instructions: list[str]
     options: list[QuestionnaireOption]
     items: list[str]
+    # 须知页数据（20260904）：进入问卷前展示并勾选确认，服务端强校验。
+    disclaimer_points: list[str] = Field(default_factory=list)
+    disclaimer_version: str = ""
 
 
 class AssessmentAnswerSet(BaseModel):
@@ -59,10 +62,25 @@ class QuestionnaireSessionItem(BaseModel):
 class QuestionnaireSessionStartRequest(BaseModel):
     user_id: str = Field(..., min_length=1)
     assessment_type: AssessmentType
+    # 须知确认（20260904 起每次评估必须）：前端勾选须知页后置 true。
+    # 服务端强校验（评估有临床语义，确认必须落后端），并打 assessment_consent
+    # 埋点（只记 type + 条款版本）。
+    consent_acknowledged: bool = False
+    disclaimer_version: str = Field("", max_length=32)
 
 
 class QuestionnaireSessionAnswerRequest(BaseModel):
     value: int = Field(..., ge=0, le=4)
+
+
+class QuestionnaireSessionBulkRequest(BaseModel):
+    """面板批量作答（shadcn 式逐题分页在客户端持有作答状态）：整卷一次提交。
+
+    长度与取值范围由 score_from_answers 按量表全量校验（422），
+    pydantic 只做粗粒度防呆（非空、上限防滥用）。
+    """
+
+    answers: list[int] = Field(..., min_length=1, max_length=50)
 
 
 class QuestionnaireSessionView(BaseModel):

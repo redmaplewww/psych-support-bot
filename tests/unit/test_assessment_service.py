@@ -3,6 +3,7 @@ from fastapi import HTTPException
 
 from psych_support_bot.domain.assessments.schemas import AssessmentAnswerSet
 from psych_support_bot.domain.assessments.service import (
+    build_assessment_followup_reply,
     build_assessment_result,
     detect_questionnaire_request,
     questionnaire_guide,
@@ -59,3 +60,34 @@ def test_questionnaire_guide_is_localized_for_chinese_ui() -> None:
     assert "过去两周" in guide.timeframe
     assert guide.options[0].label == "完全没有"
     assert any("做事时提不起兴趣" in item for item in guide.items)
+
+
+def test_followup_reply_includes_interpretation_and_disclaimer() -> None:
+    """build_assessment_followup_reply 是确定性模板：解读文案与免责声明逐字拼接。
+
+    （集成层只断言 LLM 转述契约——分数与筛查声明出现；逐字文案在此覆盖。）
+    """
+    result = build_assessment_result("phq9", answers=AssessmentAnswerSet(answers=[1, 1, 1, 1, 1, 1, 1, 1, 0]))
+    reply = build_assessment_followup_reply(result, user_message="I want to take PHQ-9")
+
+    # 分数与严重程度
+    assert "8" in reply
+    assert "mild" in reply
+    # 解读文案（plain_meaning / functional_impact）
+    assert "some low-mood symptoms are present" in reply
+    assert "motivation, concentration, energy" in reply
+    # 筛查而非诊断
+    assert "not a diagnosis" in reply
+    # 结尾邀请继续聊
+    assert "talk more about" in reply
+
+
+def test_followup_reply_is_localized_for_chinese() -> None:
+    result = build_assessment_result(
+        "phq9", answers=AssessmentAnswerSet(answers=[1, 1, 1, 1, 1, 1, 1, 1, 0]), language="zh"
+    )
+    reply = build_assessment_followup_reply(result, user_message="我想做PHQ-9")
+
+    assert "感谢你完成" in reply
+    assert "得分是8" in reply
+    assert "轻度" in reply
