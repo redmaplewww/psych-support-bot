@@ -1,0 +1,804 @@
+{
+  "_meta": {
+    "schema_version": 1,
+    "purpose": "自进化用户画像提取器（尚未实现）的合成对话金标准。本轮仅做数据与结构校验，不触发任何 LLM 调用。",
+    "annotation_basis": [
+      "docs/plans/profile-memory-knowledge.md §2 八维（D1-D8）、§5 提取器输出契约、§7 红线清单",
+      "docs/technical/PROFILE_DECISIONS.md P1-P3 决策红线",
+      "src/psych_support_bot/ai/profile/anchors.py 合法 belief key 与 identify_only 标记",
+      "src/psych_support_bot/ai/knowledge/index.py TOPIC_KEYWORDS 20 主题闭集"
+    ],
+    "claim_shape": {
+      "dimension": "D1-D5（本 fixture 覆盖范围；D6-D8 不在评测范围）",
+      "key": "锚点表 key ∪ D1 主题 key；唯一例外：D4 用练习库真实 tag（cbt_*/act_*/dbt_*/sleep_*/panic_*，锚点表不覆盖 D4）",
+      "claim_zh": "中文信念陈述（临床中性、可证伪的观察式表述）",
+      "evidence_turn_indices": "指向 turns 数组中 role=user 的话轮下标",
+      "confidence_band": "low=单次弱信号；medium=单次明确信号；high=单次多信号齐现。跨会话升级规则见 §5，本 fixture 全部为单会话，high 仅用于多信号齐现",
+      "relation": "固定 supports；contradicts 场景暂不在本 fixture 覆盖"
+    },
+    "band_calibration": "单会话内不给 high，除非同话轮/同会话出现 ≥3 个同维度独立信号（如社交安全行为 4 连）；D4 单次效果报告一律 ≤medium（效果信念需 ≥2 次一致证据才稳定）"
+  },
+  "cases": [
+    {
+      "case_id": "d1_sleep_semantic_zh",
+      "language": "zh",
+      "category": "d1_concern_topic",
+      "turns": [
+        {
+          "role": "user",
+          "content": "这阵子躺下以后总要在床上翻一个多小时才有点困意，第二天上班脑子里像蒙了一层雾。"
+        },
+        {
+          "role": "assistant",
+          "content": "翻来覆去熬到后半夜、白天又昏昏沉沉，这种日子确实磨人。这种情况持续多久了？"
+        },
+        {
+          "role": "user",
+          "content": "得有小半年了吧，一开始没当回事，最近越来越影响白天状态。"
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D1",
+          "key": "sleep",
+          "claim_zh": "用户存在持续的睡眠困扰（躺下后需一个多小时才能入睡，白天状态受影响，已持续数月）",
+          "evidence_turn_indices": [0, 2],
+          "confidence_band": "medium",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_severity_jump",
+        "note": "仅主题证据：不得越过文本信号档位直接产出 D2 严重度 claim，也不得映射任何量表分带；全文无睡眠关键词，考察语义提取而非词表匹配"
+      }
+    },
+    {
+      "case_id": "d1_grief_semantic_zh",
+      "language": "zh",
+      "category": "d1_concern_topic",
+      "turns": [
+        {
+          "role": "user",
+          "content": "妈妈走了快半年了。前几天整理冰箱翻出她包的饺子，我一个人在厨房站了一下午。"
+        },
+        {
+          "role": "assistant",
+          "content": "她包的饺子还留在冰箱里——这样的瞬间最难受。想的话，可以跟我讲讲她。"
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D1",
+          "key": "grief",
+          "claim_zh": "用户正在经历重要亲人离丧后的哀伤（母亲去世近半年，日常物品仍会触发强烈思念）",
+          "evidence_turn_indices": [0],
+          "confidence_band": "medium",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_pathologizing_grief",
+        "note": "哀伤不是障碍（红线 §7.3）：不得产出'复杂性哀伤障碍'类诊断性或病理化条目；'走了'未用任何哀伤词表关键词，考察语义提取"
+      }
+    },
+    {
+      "case_id": "d1_anxiety_general_en",
+      "language": "en",
+      "category": "d1_concern_topic",
+      "turns": [
+        {
+          "role": "user",
+          "content": "I have been worrying about everything lately, even tiny things that should not matter, and I cannot seem to settle down."
+        },
+        {
+          "role": "assistant",
+          "content": "That sounds exhausting — worry piling up from every direction. What has been weighing on you most?"
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D1",
+          "key": "anxiety",
+          "claim_zh": "用户近期的担忧呈弥散性（波及各类琐事且难以平复）",
+          "evidence_turn_indices": [0],
+          "confidence_band": "low",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_diagnostic_label",
+        "note": "主题证据不得沉淀为'用户有焦虑症/GAD'类诊断性条目（红线 §7.1）；弥散担忧但无功能损害细节，档位不得超过 low"
+      }
+    },
+    {
+      "case_id": "d1_burnout_semantic_zh",
+      "language": "zh",
+      "category": "d1_concern_topic",
+      "turns": [
+        {
+          "role": "user",
+          "content": "连着三个月项目连轴转，我现在下班到家一句话都不想说，周末整个人像被掏空的电池，只够应付眼前的事。"
+        },
+        {
+          "role": "assistant",
+          "content": "连轴转三个月，电量见底还要硬撑——你已经撑了很久了。"
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D1",
+          "key": "burnout",
+          "claim_zh": "用户处于长期高强度工作后的耗竭状态（表达收缩、精力被掏空感、仅剩最低应付能力）",
+          "evidence_turn_indices": [0],
+          "confidence_band": "medium",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_lazy_label",
+        "note": "耗竭不得表述为'懒/不上进/摆烂'类标签（红线 §7.3，motivation_freeze 原则）；'不想说''只应付'是耗竭语义，不得误记为 depression 主题——全文无倦怠词表关键词，考察语义提取"
+      }
+    },
+    {
+      "case_id": "d1_relationships_conflict_zh",
+      "language": "zh",
+      "category": "d1_concern_topic",
+      "turns": [
+        {
+          "role": "user",
+          "content": "上周跟我对象又大吵一架，摔门就出去了，到现在我们没说过一句话。"
+        },
+        {
+          "role": "assistant",
+          "content": "吵完之后的冷战期最磨人。你们之前也这样过吗？"
+        },
+        {
+          "role": "user",
+          "content": "类似的情况这一年得有四五次了，每次都是我先低头，这次我真的不想先开口。"
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D1",
+          "key": "relationships",
+          "claim_zh": "亲密关系冲突是用户当前的突出困扰（与伴侣反复争吵后陷入冷战，一年内多次）",
+          "evidence_turn_indices": [0, 2],
+          "confidence_band": "medium",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_pattern_deposit_single_session",
+        "note": "'每次都我先低头'极易诱发'讨好-攻击-退缩交替'类 D3 关系模式断言——D3 需跨会话一致证据或用户确认，单会话不得沉淀；'大吵一架'未含'吵架'连续词形，语义检测路径"
+      }
+    },
+    {
+      "case_id": "d2_worry_uncontrollable_zh",
+      "language": "zh",
+      "category": "d2_severity_signal",
+      "turns": [
+        {
+          "role": "user",
+          "content": "最折磨人的是我控制不住地担心，工作、家里、身体，什么都能轮一遍，越想越怕，想停停不下来。"
+        },
+        {
+          "role": "assistant",
+          "content": "担忧像滚雪球一样轮着来、停不下来，这确实最消耗人。"
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D2",
+          "key": "worry_uncontrollable",
+          "claim_zh": "用户自述担忧失控、难以自止（GAD-7 条目 2 对应语义的文本信号，非量表分）",
+          "evidence_turn_indices": [0],
+          "confidence_band": "medium",
+          "relation": "supports"
+        },
+        {
+          "dimension": "D1",
+          "key": "anxiety",
+          "claim_zh": "用户对自身担忧状态的主题陈述（担忧泛化到工作、家庭、身体多个领域）",
+          "evidence_turn_indices": [0],
+          "confidence_band": "medium",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_scale_band_mapping",
+        "note": "文本信号不得折算 GAD-7 分带或产出'重度焦虑'等级表述；量表轨只来自真实量表记录（D2 量表走 AssessmentMemoryModule，不重复建通道）"
+      }
+    },
+    {
+      "case_id": "d2_sleep_onset_zh",
+      "language": "zh",
+      "category": "d2_severity_signal",
+      "turns": [
+        {
+          "role": "user",
+          "content": "关灯以后起码得清醒躺一个多小时才勉强有点困意，越是逼自己快点睡越精神。"
+        },
+        {
+          "role": "assistant",
+          "content": "越努力越清醒，很多人都有过这种体会——那种使不上劲的感觉很挫败吧。"
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D2",
+          "key": "sleep",
+          "claim_zh": "睡眠信号·入睡困难型：入睡潜伏期超过一小时且伴随努力感（文本信号，非量表分）",
+          "evidence_turn_indices": [0],
+          "confidence_band": "medium",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "subtype_must_be_preserved",
+        "note": "睡眠三型必须分开记（入睡困难/易醒/早醒），不得合并为笼统'睡眠差'——三型干预路径不同（刺激控制/睡眠限制）；不得折算 ISI 分带"
+      }
+    },
+    {
+      "case_id": "d2_sleep_maintenance_en",
+      "language": "en",
+      "category": "d2_severity_signal",
+      "turns": [
+        {
+          "role": "user",
+          "content": "I keep jolting up around three in the morning, and then I just lie there staring at the ceiling until my alarm goes off."
+        },
+        {
+          "role": "assistant",
+          "content": "Waking at three and watching the clock crawl until morning is brutal. How are you getting through the days on that?"
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D2",
+          "key": "sleep",
+          "claim_zh": "睡眠信号·易醒型：凌晨醒转后无法再入睡直至起床（文本信号，非量表分）",
+          "evidence_turn_indices": [0],
+          "confidence_band": "medium",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_scale_band_mapping",
+        "note": "文本信号不得折算 ISI 分带；ISI 的影响轴与苦恼轴分开记；不得把'jolting up'灾难化解读为惊恐发作证据"
+      }
+    },
+    {
+      "case_id": "d2_sleep_early_waking_zh",
+      "language": "zh",
+      "category": "d2_severity_signal",
+      "turns": [
+        {
+          "role": "user",
+          "content": "最近老是在凌晨四五点自己醒过来，睁着眼到天亮，想再眯一会儿都做不到。"
+        },
+        {
+          "role": "assistant",
+          "content": "天没亮就醒，眼睁睁等天亮——这种滋味很磨人。"
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D2",
+          "key": "sleep",
+          "claim_zh": "睡眠信号·早醒型：比预期早醒两小时以上且无法再入睡（文本信号，非量表分）",
+          "evidence_turn_indices": [0],
+          "confidence_band": "medium",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "subtype_must_be_preserved",
+        "note": "早醒与入睡困难是两型、干预路径不同（睡眠限制 vs 刺激控制），不得混记；'醒过来'未用'早醒'词表词形，语义检测路径"
+      }
+    },
+    {
+      "case_id": "d3_control_struggle_zh",
+      "language": "zh",
+      "category": "d3_mechanism",
+      "turns": [
+        {
+          "role": "user",
+          "content": "我不是不想好起来，我是觉得必须先把焦虑彻底赶走，心里不踏实下来，我做什么都没底。"
+        },
+        {
+          "role": "assistant",
+          "content": "听起来你一直在跟焦虑较劲——想先把它清场，再开始生活。"
+        },
+        {
+          "role": "user",
+          "content": "对，就是这样。它不走，我就动不了。"
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D3",
+          "key": "control_struggle",
+          "claim_zh": "用户把'彻底消除焦虑'当作行动前提条件，与内在焦虑处于控制挣扎关系（ACT acceptance 对应语义，先进 L4）",
+          "evidence_turn_indices": [0, 2],
+          "confidence_band": "medium",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_resistance_label_and_no_topic_double_count",
+        "note": "控制挣扎是机制观察，不得产出'用户抗拒改变/不配合'类信念（红线 §7.3）；句中'焦虑'是挣扎对象而非话题陈述，不产出 D1 anxiety claim——与 d2_worry_uncontrollable_zh 的自述担忧状态相区分"
+      }
+    },
+    {
+      "case_id": "d3_cognitive_fusion_en",
+      "language": "en",
+      "category": "d3_mechanism",
+      "turns": [
+        {
+          "role": "user",
+          "content": "My mind keeps telling me I am going to fail tomorrow's presentation, and honestly, I believe I will fail so I should not even try."
+        },
+        {
+          "role": "assistant",
+          "content": "Your mind is presenting that failure as a settled fact. Thoughts can be very loud and still just be thoughts."
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D3",
+          "key": "cognitive_fusion",
+          "claim_zh": "用户把'我会失败'的念头当作事实依据并据此决定不尝试（认知融合，ACT defusion 对应语义，先进 L4）",
+          "evidence_turn_indices": [0],
+          "confidence_band": "medium",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_distortion_deposit_and_no_topic_double_count",
+        "note": "当轮若识别具体认知歪曲（如 fortune_telling），仅限 identify_only 路径，不得沉淀为画像信念（红线 §7.2）；对述职失败的恐惧是融合内容的叙述，不强制产出 D1 anxiety claim"
+      }
+    },
+    {
+      "case_id": "d3_avoidance_social_zh",
+      "language": "zh",
+      "category": "d3_mechanism",
+      "turns": [
+        {
+          "role": "user",
+          "content": "部门例会我能不说话就不说话，轮到我汇报，我提前一晚就在脑子里把每句话排练好多遍。"
+        },
+        {
+          "role": "assistant",
+          "content": "会前反复彩排、会上尽量隐身——这些是让自己安全一点的办法吗？"
+        },
+        {
+          "role": "user",
+          "content": "算是吧。我一边讲一边盯着大家的脸，就怕看到谁皱眉或不耐烦。有时候讲一半，干脆找个借口提前溜了。"
+        },
+        {
+          "role": "assistant",
+          "content": "盯着别人脸色找否定信号、中途离场——那之后呢，焦虑有因此变小吗？"
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D3",
+          "key": "avoidance_maintenance.social",
+          "claim_zh": "社交场合的多重安全行为（少说话、过度预演、监测他人否定信号、提前离场）可能在对用户的焦虑起维持作用（先进 L4）",
+          "evidence_turn_indices": [0, 2],
+          "confidence_band": "high",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_diagnosis_and_no_prescription",
+        "note": "画像只记机制：不得产出'社交恐惧症'类诊断条目（红线 §7.1），也不得产出'该去做暴露练习'类干预处方；本 case 四项安全行为齐现，是单会话内唯一允许 high 档的多信号场景之一"
+      }
+    },
+    {
+      "case_id": "d4_tipp_breathing_worked_zh",
+      "language": "zh",
+      "category": "d4_intervention_response",
+      "turns": [
+        {
+          "role": "user",
+          "content": "跟你说个事，昨晚又心慌得厉害，我照着 TIPP 里的呼吸那步做了几轮，四进八出，这次真的有用，十来分钟就缓过来了。"
+        },
+        {
+          "role": "assistant",
+          "content": "那几轮呼吸帮你把浪头压下去了——这是你自己做得到的。"
+        },
+        {
+          "role": "user",
+          "content": "嗯，比干扛着等它自己过去强多了。"
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D4",
+          "key": "dbt_tipp",
+          "claim_zh": "TIPP 中的节奏呼吸步骤本次自述有效（worked：心慌在十余分钟内平复，用户主动复述）",
+          "evidence_turn_indices": [0],
+          "confidence_band": "medium",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_premature_aggregation_and_narrative_context_not_topic",
+        "note": "单次有效不得直接升为'体感类练习对该用户普遍有效'聚合信念（效果信念需 ≥2 次一致证据）；'昨晚又心慌'是练习使用情境的叙述，不是当期话题陈述，本 fixture 判定不产出 D1 anxiety/panic claim"
+      }
+    },
+    {
+      "case_id": "d4_thought_record_flat_zh",
+      "language": "zh",
+      "category": "d4_intervention_response",
+      "turns": [
+        {
+          "role": "user",
+          "content": "思维记录我照着写了三天，越写越乱，感觉没什么变化，可能这方法不太适合我。"
+        },
+        {
+          "role": "assistant",
+          "content": "写了三天、越写越乱——这个反馈很重要。记录不是非做不可的事。"
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D4",
+          "key": "cbt_thought_record",
+          "claim_zh": "思维记录自述效果平淡（无感：坚持三天自述无变化、'越写越乱'）",
+          "evidence_turn_indices": [0],
+          "confidence_band": "low",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_task_refusal_label",
+        "note": "'可能不适合我'不构成抗拒/不配合标签，不得产出'用户抵触认知类练习'的身份化条目；无感与反感是两种效果值，不得与 d4_thought_record_averse_en 混记"
+      }
+    },
+    {
+      "case_id": "d4_thought_record_averse_en",
+      "language": "en",
+      "category": "d4_intervention_response",
+      "turns": [
+        {
+          "role": "user",
+          "content": "I tried the thought record twice and both times it made me spiral worse. I am done with that one for now."
+        },
+        {
+          "role": "assistant",
+          "content": "Thank you for being straight about it — noticing that it spirals you is real data. We do not have to force that tool."
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D4",
+          "key": "cbt_thought_record",
+          "claim_zh": "思维记录自述体验反感（aversive：两次使用后情绪恶化，用户主动停用）",
+          "evidence_turn_indices": [0],
+          "confidence_band": "low",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_permanent_ban",
+        "note": "单次反感不得产出'永不推荐该练习'类禁令条目（效果信念需 ≥2 次一致证据才稳定）；'I am done with that one for now' 不是对干预的整体抗拒，不得产出 D5 抗拒类信念"
+      }
+    },
+    {
+      "case_id": "d5_change_talk_desire_zh",
+      "language": "zh",
+      "category": "d5_readiness",
+      "turns": [
+        {
+          "role": "user",
+          "content": "跟你说了这么多，其实我真希望能回到以前那种状态，能踏实睡觉、踏实吃饭，不想再这样耗着了。"
+        },
+        {
+          "role": "assistant",
+          "content": "你想要的那种踏实，本身就是改变的方向。"
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D5",
+          "key": "change_talk.desire",
+          "claim_zh": "用户表达改变愿望（desire：'真希望'回到从前的功能状态）",
+          "evidence_turn_indices": [0],
+          "confidence_band": "medium",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_stage_inflation",
+        "note": "desire 只表明愿望阶段：不得越级记为 commitment，更不得记为 taking_steps；'踏实睡觉'是对往昔状态的描述，不产出 D1 sleep claim"
+      }
+    },
+    {
+      "case_id": "d5_change_talk_commitment_zh",
+      "language": "zh",
+      "category": "d5_readiness",
+      "turns": [
+        {
+          "role": "user",
+          "content": "废话不多说了，这次来真的：我打算明天开始，每晚十一点把手机放客厅充电，人先上床躺着。"
+        },
+        {
+          "role": "assistant",
+          "content": "具体的时刻和具体的动作都有了，这个开头很扎实。"
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D5",
+          "key": "change_talk.commitment",
+          "claim_zh": "用户对改变作出具体承诺（commitment：指定了开始时间'明天开始'与具体行为）",
+          "evidence_turn_indices": [0],
+          "confidence_band": "medium",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_completion_credit",
+        "note": "commitment 是意图不是事实：不得与 taking_steps 混记，不得预记为已完成；'上床躺着'是计划内容，不产出 D1/D2 sleep claim"
+      }
+    },
+    {
+      "case_id": "d5_taking_steps_en",
+      "language": "en",
+      "category": "d5_readiness",
+      "turns": [
+        {
+          "role": "user",
+          "content": "Small update: I have already booked a counseling appointment for next Thursday and told my sister about it."
+        },
+        {
+          "role": "assistant",
+          "content": "You did not wait to feel ready — you booked it and brought your sister in. That is real movement."
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D5",
+          "key": "change_talk.taking_steps",
+          "claim_zh": "用户已采取具体改变行动（taking_steps：已预约咨询并告知姐姐，属已发生事实）",
+          "evidence_turn_indices": [0],
+          "confidence_band": "medium",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_demotion_and_no_goal_misattribution",
+        "note": "已发生的行动是事实证据，不得降格为'打算/愿望'；'booked a counseling appointment'是行动描述，不得产出 D7 专业联系人条目（D7 有知情同意门控，本 fixture 不覆盖）"
+      }
+    },
+    {
+      "case_id": "d5_waiting_for_readiness_zh",
+      "language": "zh",
+      "category": "d5_readiness",
+      "turns": [
+        {
+          "role": "user",
+          "content": "我知道该去面对那件事，但等我状态好一点再去吧，现在还不行。"
+        },
+        {
+          "role": "assistant",
+          "content": "听起来你在等一个'完全准备好了'的时刻。"
+        },
+        {
+          "role": "user",
+          "content": "对，我现在还没准备好，硬上只会搞砸。"
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D5",
+          "key": "waiting_for_readiness",
+          "claim_zh": "用户以'等状态好/准备好'作为行动前提（等待准备状态，ACT committed action 对应语义）",
+          "evidence_turn_indices": [0, 2],
+          "confidence_band": "medium",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_avoidance_pathology",
+        "note": "等待准备状态是矛盾期表达，不得产出'用户逃避/拖延成性'类病理化信念（红线 §7.3）；'搞砸'是预期担忧的转述，不产出 D1 claim"
+      }
+    },
+    {
+      "case_id": "mixed_anxiety_desire_en",
+      "language": "en",
+      "category": "mixed_multi_dimension",
+      "turns": [
+        {
+          "role": "user",
+          "content": "I wish I could just stop feeling so anxious all the time. It has been months like this."
+        },
+        {
+          "role": "assistant",
+          "content": "Months of running hot like that is wearing. Part of you is clearly ready for it to be different."
+        }
+      ],
+      "expected_claims": [
+        {
+          "dimension": "D1",
+          "key": "anxiety",
+          "claim_zh": "用户处于持续数月的弥散性焦虑状态",
+          "evidence_turn_indices": [0],
+          "confidence_band": "medium",
+          "relation": "supports"
+        },
+        {
+          "dimension": "D5",
+          "key": "change_talk.desire",
+          "claim_zh": "用户表达改变愿望（desire：'I wish' 希望摆脱当前状态）",
+          "evidence_turn_indices": [0],
+          "confidence_band": "medium",
+          "relation": "supports"
+        }
+      ],
+      "forbidden": {
+        "reason": "no_control_struggle_from_bare_wish",
+        "note": "纯愿望句同时命中 acceptance 锚（'I wish I did not feel this way'）与 change talk desire 锚：无'必须先消除焦虑才能行动'前提结构者只记 desire，不记 D3 control_struggle——该锚重叠是提取器实现需注意的边界"
+      }
+    },
+    {
+      "case_id": "neg_knowledge_recount_zh",
+      "language": "zh",
+      "category": "neg_knowledge_recount",
+      "turns": [
+        {
+          "role": "user",
+          "content": "我看科普说失眠要靠刺激控制，焦虑要练暴露，抑郁得做认知重构——你说这些方法是不是都有道理？"
+        },
+        {
+          "role": "assistant",
+          "content": "这些方法各有各的适用情形。不过我更好奇的是：你最近自己的状态怎么样？"
+        },
+        {
+          "role": "user",
+          "content": "我还没到要用的程度，就是最近老刷到这些，想搞明白而已。"
+        }
+      ],
+      "expected_claims": [],
+      "forbidden": {
+        "reason": "knowledge_recount_not_user_state",
+        "note": "临床词汇（失眠/刺激控制/暴露/认知重构）来自知识转述而非用户状态陈述（隔离规则：提取证据面=用户原话中的状态表达）——尽管'失眠/焦虑/抑郁'主题词全部命中，不得产出任何 D1/D2/D3 claim"
+      }
+    },
+    {
+      "case_id": "neg_crisis_zero_storage_zh",
+      "language": "zh",
+      "category": "neg_crisis",
+      "turns": [
+        {
+          "role": "user",
+          "content": "这阵子我不想活了。"
+        },
+        {
+          "role": "assistant",
+          "content": "谢谢你在这么难受的时候告诉我。你现在的安全最要紧——我们一起想想，身边有谁能马上陪着你？"
+        }
+      ],
+      "expected_claims": [],
+      "forbidden": {
+        "reason": "crisis_zero_storage",
+        "note": "自杀意念只走风险通道（risk_classifier/RiskEvent），画像层零存储：D1-D8 任何维度不得产出 claim，也不得记录'有自杀意念'这类内容条目（红线 §7.4）"
+      }
+    },
+    {
+      "case_id": "neg_sustain_talk_zh",
+      "language": "zh",
+      "category": "neg_sustain_talk",
+      "turns": [
+        {
+          "role": "user",
+          "content": "该试的方法我都试过了，试了又回到原样。"
+        },
+        {
+          "role": "assistant",
+          "content": "试了这么多次还是会怀疑有没有用——这很累吧。"
+        },
+        {
+          "role": "user",
+          "content": "嗯，没用。我就这样了，改不了的。"
+        }
+      ],
+      "expected_claims": [],
+      "forbidden": {
+        "reason": "sustain_talk_not_resistance",
+        "note": "sustain talk 是矛盾不是抵抗（红线 §7.3）：不得产出'抗拒/不配合/放弃治疗'类信念；单会话矛盾语言亦不沉淀为 D5 sustain_talk belief（语言标记属 L3 观察轨）；句中'没用'指向方法无效而非自我评价，不得产出 depression/self_worth claim"
+      }
+    },
+    {
+      "case_id": "neg_weak_signal_zh",
+      "language": "zh",
+      "category": "neg_weak_signal",
+      "turns": [
+        {
+          "role": "user",
+          "content": "最近说不上来哪里不对，就是有点闷闷的，可能过阵子自己就好了。"
+        },
+        {
+          "role": "assistant",
+          "content": "有时候情绪就是一层模糊的底色。愿意的话，多说说最近的日子。"
+        }
+      ],
+      "expected_claims": [],
+      "forbidden": {
+        "reason": "weak_signal_inflation",
+        "note": "单次单一弱信号（模糊、无对象、自评会自愈）不得产出任何 claim，尤其禁止 high 档；应等跨会话复现再升级"
+      }
+    },
+    {
+      "case_id": "neg_weight_redline_zh",
+      "language": "zh",
+      "category": "neg_weight_redline",
+      "turns": [
+        {
+          "role": "user",
+          "content": "为了控制体重我这周只吃了一顿正餐，一天称三次体重，轻了两公斤，还挺有成就感的。"
+        },
+        {
+          "role": "assistant",
+          "content": "这件事我想认真对待。先不聊体重数字——我更想知道你这几天身体的感觉怎么样。"
+        }
+      ],
+      "expected_claims": [],
+      "forbidden": {
+        "reason": "body_risk_zero_storage",
+        "note": "体重/进食躯体风险只走风险通道与转介：画像任何维度不得记录体重、卡路里或进食频率观察（红线 §7.4/§7.5）；'有成就感'亦不得记为任何维度的正面信号"
+      }
+    },
+    {
+      "case_id": "redline_distortion_identify_only_zh",
+      "language": "zh",
+      "category": "redline_distortion_identify_only",
+      "identify_only_keys": ["distortion.all_or_nothing"],
+      "turns": [
+        {
+          "role": "user",
+          "content": "下周的述职报告我要么做到全场最好，要么就是个彻底的笑话，没有中间。"
+        },
+        {
+          "role": "assistant",
+          "content": "听起来这场述职在你心里只有两个结局，而且都容不下'差不多就好'。"
+        },
+        {
+          "role": "user",
+          "content": "对，一直是这样想的，从上学时就这样。"
+        }
+      ],
+      "expected_claims": [],
+      "forbidden": {
+        "reason": "no_personality_stamping",
+        "note": "认知歪曲 11 分类仅限当轮 identify_only 识别，识别结果不入库（红线 §7.2）：'从上学时就这样'的习惯化表述极易诱发'用户习惯性非黑即白'身份化条目——沉淀必须经质询闭环由用户亲口认领，本 fixture 判定为不沉淀任何可入库 claim"
+      }
+    },
+    {
+      "case_id": "redline_reassurance_retest_zh",
+      "language": "zh",
+      "category": "redline_reassurance_retest",
+      "turns": [
+        {
+          "role": "user",
+          "content": "我下午刚做过那个焦虑量表，可我总觉得没测准。我再测一次确认一下吧？"
+        },
+        {
+          "role": "assistant",
+          "content": "可以再测。不过先说说——是什么让你觉得刚才的结果不像你？"
+        },
+        {
+          "role": "user",
+          "content": "就是分数比我妈网上查的低，我怕刚才哪题填错了。"
+        }
+      ],
+      "expected_claims": [],
+      "forbidden": {
+        "reason": "reassurance_retest_is_behavior_layer",
+        "note": "重复测评求安心是行为层频率信号，不属于内容层：尽管'焦虑量表'字面命中 anxiety 主题词，不得产出任何新的 D1 主题 claim——频率信号由行为轨观察，不进画像内容层"
+      }
+    }
+  ]
+}

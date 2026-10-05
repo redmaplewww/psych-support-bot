@@ -192,8 +192,7 @@ ACT_EXERCISES = {
             "Rate how close your current life is to that day, 0-10.",
             "Name one small action this week that moves toward that value.",
         ],
-        "tips": "Values are not about perfection. They are about direction. "
-        "Any step in a valued direction counts.",
+        "tips": "Values are not about perfection. They are about direction. Any step in a valued direction counts.",
     },
     "commitment_obstacle": {
         "name": "Committed Action: Obstacle Course",

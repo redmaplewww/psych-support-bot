@@ -74,9 +74,7 @@ def test_not_suicidal_is_low() -> None:
 
 
 def test_mania_grandiosity_detected() -> None:
-    result = classify_message_risk(
-        "I have been feeling like I can accomplish anything and have not slept for days"
-    )
+    result = classify_message_risk("I have been feeling like I can accomplish anything and have not slept for days")
     assert result.risk_level == "high"
     assert "mania" in result.risk_types
     assert result.needs_crisis_mode is True

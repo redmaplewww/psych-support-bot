@@ -1,10 +1,8 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-ConversationMode = Literal[
-    "support", "assessment", "intervention", "planning", "crisis", "help"
-]
+ConversationMode = Literal["support", "assessment", "intervention", "planning", "crisis", "help"]
 RiskLevel = Literal["low", "elevated", "high", "critical"]
 
 
@@ -13,6 +11,7 @@ class ConversationRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
     session_id: str | None = None
     memory_summary: str | None = None
+    vad_metadata: dict | None = None
 
 
 class RiskResult(BaseModel):
@@ -25,7 +24,8 @@ class RiskResult(BaseModel):
 class GeneratedReply(BaseModel):
     text: str
     style: ConversationMode
-    includes_action_step: bool = True
+    # IM-style bubbles for conversational replies; empty means render `text` as one bubble.
+    messages: list[str] = Field(default_factory=list)
 
 
 class ConversationResponse(BaseModel):
@@ -34,6 +34,8 @@ class ConversationResponse(BaseModel):
     risk: RiskResult
     reply: GeneratedReply
     summary: str
+    # Tappable option chips for in-chat questionnaire items; empty elsewhere.
+    question_options: list[dict[str, Any]] = Field(default_factory=list)
     debug: dict[str, object] = Field(default_factory=dict)
 
 

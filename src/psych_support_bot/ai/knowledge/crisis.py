@@ -131,8 +131,7 @@ SAFETY_PLAN_TEMPLATE = {
             "step": 5,
             "title": "Making the Environment Safe",
             "description": (
-                "How can I reduce access to lethal means (weapons, medications, etc.) "
-                "during moments of crisis?"
+                "How can I reduce access to lethal means (weapons, medications, etc.) during moments of crisis?"
             ),
             "prompt": "If you have thought about ways to harm yourself, "
             "what can you do to make those means less accessible? "
@@ -202,8 +201,7 @@ MEANS_RESTRICTION_GUIDANCE = {
 
 CRISIS_FOLLOWUP_PROTOCOL = {
     "description": (
-        "For users who have been through a crisis interaction, "
-        "follow-up interactions should be handled with care."
+        "For users who have been through a crisis interaction, follow-up interactions should be handled with care."
     ),
     "check_ins": [
         "Start by asking how they are doing today, specifically regarding their safety.",
@@ -232,8 +230,4 @@ def get_crisis_ai_behavior(level: str) -> list[str]:
 
 
 def get_means_restriction_guidance(means: str) -> str | None:
-    return (
-        MEANS_RESTRICTION_GUIDANCE.get("common_means", {})
-        .get(means, {})
-        .get("guidance")
-    )
+    return MEANS_RESTRICTION_GUIDANCE.get("common_means", {}).get(means, {}).get("guidance")

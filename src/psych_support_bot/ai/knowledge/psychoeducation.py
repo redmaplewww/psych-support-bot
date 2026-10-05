@@ -241,9 +241,7 @@ def get_psychoeducation_module(module_id: str) -> dict | None:
 
 
 def get_modules_by_category(category: str) -> list[dict]:
-    return [
-        v for v in PSYCHOEDUCATION_MODULES.values() if v.get("category") == category
-    ]
+    return [v for v in PSYCHOEDUCATION_MODULES.values() if v.get("category") == category]
 
 
 def list_psychoeducation_modules() -> dict[str, str]:

@@ -59,21 +59,14 @@ SFBT_TOOLS = {
             },
         ],
         "follow_up_script": [
-            (
-                "Why are you at [number] and not a lower number? "
-                "This highlights strengths and resources already in use."
-            ),
-            (
-                "What would it take to get to [number + 1]? "
-                "This identifies a specific, achievable next step."
-            ),
+            ("Why are you at [number] and not a lower number? This highlights strengths and resources already in use."),
+            ("What would it take to get to [number + 1]? This identifies a specific, achievable next step."),
             (
                 "If you moved from [current] to [higher], what would be different? "
                 "This clarifies what change looks like concretely."
             ),
         ],
-        "when_to_use": "Goal-setting, motivation assessment, tracking progress, "
-        "building confidence before action.",
+        "when_to_use": "Goal-setting, motivation assessment, tracking progress, building confidence before action.",
     },
     "exception_finding": {
         "name": "Exception-Finding Questions",
@@ -103,8 +96,7 @@ SFBT_TOOLS = {
             {
                 "type": "pattern",
                 "prompt": (
-                    "Is this a pattern? Have there been other times like this? "
-                    "What do those times have in common?"
+                    "Is this a pattern? Have there been other times like this? What do those times have in common?"
                 ),
             },
         ],
@@ -247,32 +239,13 @@ MI_TOOLS = {
             "MI strategies specifically elicit and reinforce change talk because it predicts behavior change."
         ),
         "types": {
-            "DESIRE": (
-                "I want, I wish, I would like. "
-                "Example: 'I wish I could stop feeling this anxious.'"
-            ),
-            "ABILITY": (
-                "I could, I am able to, I can. "
-                "Example: 'I could try going to bed earlier.'"
-            ),
-            "REASON": (
-                "Because, the reason is. "
-                "Example: 'I want to feel better because I am missing out on my life.'"
-            ),
-            "NEED": (
-                "I need to, I must, I have to. "
-                "Example: 'I need to do something about this.'"
-            ),
-            "COMMITMENT": (
-                "I will, I intend to, I plan to. Example: 'I will try that tomorrow.'"
-            ),
-            "ACTIVATION": (
-                "I am ready, I am willing. Example: 'I am willing to give it a try.'"
-            ),
-            "TAKING_STEPS": (
-                "I have, I did. "
-                "Example: 'I have been going for walks every morning this week.'"
-            ),
+            "DESIRE": ("I want, I wish, I would like. Example: 'I wish I could stop feeling this anxious.'"),
+            "ABILITY": ("I could, I am able to, I can. Example: 'I could try going to bed earlier.'"),
+            "REASON": ("Because, the reason is. Example: 'I want to feel better because I am missing out on my life.'"),
+            "NEED": ("I need to, I must, I have to. Example: 'I need to do something about this.'"),
+            "COMMITMENT": ("I will, I intend to, I plan to. Example: 'I will try that tomorrow.'"),
+            "ACTIVATION": ("I am ready, I am willing. Example: 'I am willing to give it a try.'"),
+            "TAKING_STEPS": ("I have, I did. Example: 'I have been going for walks every morning this week.'"),
         },
         "sustain_talk": (
             "Sustain talk is language that favors the status quo. "
@@ -317,10 +290,7 @@ MI_TOOLS = {
                 "Draw the connection: 'So your work with [value] is important to you, "
                 "and [current behavior] is making that harder. How do you see those together?'"
             ),
-            (
-                "Let the user articulate the discrepancy: "
-                "'What do you make of that?' or 'How do you feel about that?'"
-            ),
+            ("Let the user articulate the discrepancy: 'What do you make of that?' or 'How do you feel about that?'"),
         ],
         "principle": (
             "Do not lecture or confront. The AI should not be the one pointing out the contradiction. "
