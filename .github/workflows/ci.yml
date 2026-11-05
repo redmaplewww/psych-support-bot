@@ -1,0 +1,67 @@
+name: Reorganization CI
+on:
+  push:
+    branches: [main, dev, 'codex/reorg-*']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: sqlite:///./ci.db
+      OPENAI_API_KEY: ''
+      DASHSCOPE_API_KEY: ''
+      LANGFUSE_PUBLIC_KEY: ''
+      LANGFUSE_SECRET_KEY: ''
+      VOICE_STT_API_KEY: ''
+      VOICE_TTS_API_KEY: ''
+      SPECULATIVE_REPLY_ENABLED: 'false'
+      PROFILE_LLM_EXTRACTION_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv python install 3.12
+      - run: uv sync --locked
+      - name: Migration lint
+        run: uv run ruff check src/psych_support_bot/infra/db/migration_runner.py tests/unit/test_runtime_migrations.py scripts/check_wheel.py
+      - name: Unit tests
+        run: uv run pytest tests/unit/ -q
+      - name: Integration tests after dialogue foundation
+        run: |
+          if [ -f src/psych_support_bot/services/questionnaire_flow.py ]; then
+            uv run pytest tests/integration/ -q --tb=short
+          fi
+      - name: Context linkage tests when present
+        run: |
+          if [ -f tests/test_context_slicing_unit.py ]; then
+            uv run pytest tests/test_context_slicing_unit.py tests/test_slice_profile_linkage_unit.py -q
+          fi
+      - name: Frontend tests when present
+        run: |
+          if [ -d tests/frontend ]; then
+            node --test tests/frontend/*.test.mjs
+          fi
+      - run: uv build --wheel --out-dir dist
+      - run: uv run python scripts/check_wheel.py dist/*.whl
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: docker compose config --quiet
+      - run: docker compose -f docker-compose.server.yml config --quiet
+      - run: cmp Dockerfile Dockerfile.server
+      - run: docker build --tag psy-reorg-check .
+      - name: Container startup smoke
+        run: |
+          docker run -d --name psy-reorg-smoke -p 8000:8000 -e DATABASE_URL=sqlite:////app/data/smoke.db psy-reorg-check
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://localhost:8000/health; then exit 0; fi
+            sleep 2
+          done
+          docker logs psy-reorg-smoke
+          exit 1
+      - name: Stop smoke container
+        if: always()
+        run: docker rm -f psy-reorg-smoke || true

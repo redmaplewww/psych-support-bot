@@ -51,9 +51,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=False),
     )
     op.create_index("ix_assessments_user_id", "assessments", ["user_id"])
-    op.create_index(
-        "ix_assessments_assessment_type", "assessments", ["assessment_type"]
-    )
+    op.create_index("ix_assessments_assessment_type", "assessments", ["assessment_type"])
     op.create_table(
         "checkins",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),

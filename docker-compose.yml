@@ -4,12 +4,18 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: sqlite:///./psych_support_bot.db
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/psych_support_bot.db}
       REDIS_URL: redis://redis:6379/0
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+    volumes:
+      - app-data:/app/data
     depends_on:
       - redis
-
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+volumes:
+  app-data:

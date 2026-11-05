@@ -21,8 +21,15 @@ from psych_support_bot.infra.db.init_db import init_db
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    _run_migrations()
     init_db()
     yield
+
+
+def _run_migrations() -> None:
+    from psych_support_bot.infra.db.migration_runner import run_migrations
+
+    run_migrations()
 
 
 STATIC_DIR = Path(__file__).parent / "static"

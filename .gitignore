@@ -33,3 +33,6 @@ nul
 
 # Test reports
 test_report/
+
+# Commit the public configuration template, never real credentials.
+!.env.example
